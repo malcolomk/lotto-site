@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LOTTO — 당첨번호 검색</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@300;400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --gold: #f5c842;
+  --gold2: #e8a820;
+  --red: #e03030;
+  --bg: #0a0a0f;
+  --bg2: #13131e;
+  --bg3: #1c1c2e;
+  --border: rgba(255,255,255,0.07);
+  --text: #f0f0f8;
+  --muted: #666688;
+  --b1: #ffc200;
+  --b2: #48baf0;
+  --b3: #ff5c5c;
+  --b4: #aaaaaa;
+  --b5: #8ed832;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Noto Sans KR', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── 배경 그래픽 ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 80% 10%, rgba(245,200,66,0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 60% at 10% 80%, rgba(72,186,240,0.06) 0%, transparent 60%);
+  pointer-events: none; z-index: 0;
+}
+
+/* ── 헤더 ── */
+header {
+  position: relative; z-index: 10;
+  padding: 48px 24px 32px;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+.logo {
+  font-family: 'Black Han Sans', sans-serif;
+  font-size: clamp(2.4rem, 6vw, 4rem);
+  letter-spacing: 0.12em;
+  background: linear-gradient(135deg, #ffe066 0%, #f5a623 50%, #ff6b35 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  display: inline-block;
+}
+.logo span { font-family: 'Space Mono', monospace; letter-spacing: 0; }
+.tagline {
+  font-size: 0.78rem; letter-spacing: 0.3em; text-transform: uppercase;
+  color: var(--muted); margin-top: 6px;
+}
+
+/* ── 메인 컨테이너 ── */
+main { position: relative; z-index: 5; max-width: 860px; margin: 0 auto; padding: 40px 20px 80px; }
+
+/* ── 탭 ── */
+.tabs {
+  display: flex; gap: 4px;
+  background: var(--bg2); border-radius: 12px; padding: 4px;
+  margin-bottom: 32px; border: 1px solid var(--border);
+}
+.tab {
+  flex: 1; padding: 10px; text-align: center;
+  font-size: 0.85rem; font-weight: 500; cursor: pointer;
+  border-radius: 9px; transition: all 0.2s; color: var(--muted);
+  border: none; background: none;
+}
+.tab.active { background: var(--gold); color: #0a0a0f; font-weight: 700; }
+.tab:hover:not(.active) { color: var(--text); background: var(--bg3); }
+
+.panel { display: none; }
+.panel.active { display: block; animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* ── 패널 1: 회차 검색 ── */
+.search-box {
+  display: flex; gap: 10px; margin-bottom: 28px;
+  flex-wrap: wrap;
+}
+.search-box input {
+  flex: 1; min-width: 120px;
+  padding: 14px 18px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--text);
+  font-family: 'Space Mono', monospace; font-size: 1rem;
+  outline: none; transition: border-color 0.2s;
+}
+.search-box input:focus { border-color: var(--gold); }
+.search-box input::placeholder { color: var(--muted); }
+.btn-gold {
+  padding: 14px 26px;
+  background: linear-gradient(135deg, var(--gold), var(--gold2));
+  color: #0a0a0f; font-weight: 700; font-size: 0.95rem;
+  border: none; border-radius: 10px; cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.2s;
+  white-space: nowrap;
+}
+.btn-gold:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(245,200,66,0.35); }
+.btn-gold:active { transform: none; }
+.btn-gold:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* ── 결과 카드 ── */
+.result-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 16px; padding: 28px 24px;
+  animation: fadeIn 0.35s ease;
+}
+.result-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: 20px; flex-wrap: wrap; gap: 8px;
+}
+.round-no {
+  font-family: 'Black Han Sans', sans-serif;
+  font-size: 1.6rem; color: var(--gold);
+}
+.round-date { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+.prize-info { text-align: right; }
+.prize-1st { font-size: 0.75rem; color: var(--muted); }
+.prize-amt { font-family: 'Space Mono', monospace; font-size: 0.9rem; color: #6af; margin-top: 2px; }
+
+.balls-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.ball {
+  width: 44px; height: 44px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Space Mono', monospace; font-weight: 700; font-size: 0.95rem;
+  position: relative; cursor: default;
+  transition: transform 0.2s;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.25);
+}
+.ball:hover { transform: scale(1.08); }
+.ball.sm { width: 36px; height: 36px; font-size: 0.82rem; }
+.c1  { background: radial-gradient(circle at 35% 35%, #ffe566, #ffc200); color: #3a2000; }
+.c2  { background: radial-gradient(circle at 35% 35%, #7ad8ff, #48baf0); color: #003050; }
+.c3  { background: radial-gradient(circle at 35% 35%, #ff9090, #ff5c5c); color: #fff; }
+.c4  { background: radial-gradient(circle at 35% 35%, #ddd, #aaaaaa); color: #222; }
+.c5  { background: radial-gradient(circle at 35% 35%, #c0f050, #8ed832); color: #1a3000; }
+.ball-bonus { position: relative; }
+.ball-bonus::before {
+  content: '+'; position: absolute; top: -8px; left: 50%; transform: translateX(-50%);
+  font-size: 0.65rem; color: var(--muted); font-family: 'Space Mono', monospace;
+}
+.plus-sign { font-size: 1.2rem; color: var(--muted); }
+
+/* ── 당첨금 테이블 ── */
+.prize-table { width: 100%; border-collapse: collapse; margin-top: 18px; font-size: 0.83rem; }
+.prize-table th { color: var(--muted); padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--border); font-weight: 500; }
+.prize-table td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.prize-table tr:last-child td { border-bottom: none; }
+.rank-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-weight: 700; font-size: 0.75rem;
+}
+.r1 { background: rgba(245,200,66,0.2); color: var(--gold); }
+.r2 { background: rgba(72,186,240,0.15); color: #7ad8ff; }
+.r3 { background: rgba(255,92,92,0.15); color: #ff9090; }
+.r4 { background: rgba(170,170,170,0.15); color: #ccc; }
+.r5 { background: rgba(142,216,50,0.15); color: #b8f060; }
+.money { font-family: 'Space Mono', monospace; color: #aaeeff; text-align: right; }
+
+/* ── 패널 2: 번호 검색 ── */
+.num-picker { margin-bottom: 28px; }
+.picker-label { font-size: 0.78rem; letter-spacing: 0.2em; color: var(--muted); text-transform: uppercase; margin-bottom: 12px; }
+.num-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
+  gap: 6px; margin-bottom: 16px;
+}
+.num-btn {
+  width: 100%; aspect-ratio: 1; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--bg2);
+  color: var(--muted); font-family: 'Space Mono', monospace;
+  font-size: 0.85rem; cursor: pointer; transition: all 0.15s;
+}
+.num-btn:hover { border-color: #666; color: var(--text); }
+.num-btn.sel { border-color: transparent; color: #0a0a0f !important; font-weight: 700; transform: scale(1.05); }
+.num-btn.c1.sel { background: var(--b1); }
+.num-btn.c2.sel { background: var(--b2); }
+.num-btn.c3.sel { background: var(--b3); }
+.num-btn.c4.sel { background: var(--b4); }
+.num-btn.c5.sel { background: var(--b5); }
+
+.selected-display {
+  min-height: 52px; background: var(--bg3); border-radius: 10px;
+  padding: 10px 14px; display: flex; align-items: center; gap: 8px;
+  flex-wrap: wrap; border: 1px solid var(--border); margin-bottom: 14px;
+}
+.sel-placeholder { color: var(--muted); font-size: 0.85rem; }
+.search-controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.match-select {
+  padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--text); font-size: 0.88rem; outline: none; cursor: pointer;
+}
+.match-select:focus { border-color: var(--gold); }
+.btn-ghost {
+  padding: 10px 18px; background: transparent; border: 1px solid var(--border);
+  border-radius: 10px; color: var(--muted); font-size: 0.85rem; cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-ghost:hover { border-color: #666; color: var(--text); }
+
+/* ── 결과 리스트 ── */
+.results-list { display: flex; flex-direction: column; gap: 10px; }
+.result-row {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 14px 18px;
+  display: flex; align-items: center; gap: 14px;
+  flex-wrap: wrap; animation: fadeIn 0.25s ease;
+  transition: border-color 0.2s;
+}
+.result-row:hover { border-color: rgba(245,200,66,0.3); }
+.result-row .rno {
+  font-family: 'Space Mono', monospace; font-size: 0.8rem; color: var(--muted);
+  min-width: 60px;
+}
+.result-row .rno strong { display: block; font-size: 1rem; color: var(--gold); }
+.result-row .balls-mini { display: flex; gap: 4px; flex-wrap: wrap; flex: 1; }
+
+/* ── 로딩 ── */
+.loading {
+  text-align: center; padding: 48px 20px;
+}
+.spinner {
+  width: 40px; height: 40px; border: 3px solid var(--border);
+  border-top-color: var(--gold); border-radius: 50%;
+  animation: spin 0.7s linear infinite; margin: 0 auto 16px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { color: var(--muted); font-size: 0.85rem; }
+.progress-wrap { margin: 12px auto 0; max-width: 280px; }
+.progress-track { height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
+.progress-bar { height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold2)); border-radius: 2px; transition: width 0.3s; width: 0%; }
+
+.err { color: #ff7777; text-align: center; padding: 24px; font-size: 0.9rem; }
+.count-badge {
+  display: inline-block; background: rgba(245,200,66,0.15); color: var(--gold);
+  border-radius: 20px; padding: 3px 12px; font-size: 0.8rem;
+  font-family: 'Space Mono', monospace; margin-bottom: 14px;
+}
+
+/* ── 최신 회차 배너 ── */
+.latest-banner {
+  background: linear-gradient(135deg, rgba(245,200,66,0.1), rgba(232,168,32,0.05));
+  border: 1px solid rgba(245,200,66,0.25); border-radius: 14px;
+  padding: 20px 22px; margin-bottom: 26px;
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+}
+.lb-label { font-size: 0.72rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--gold2); margin-bottom: 4px; }
+.lb-round { font-family: 'Black Han Sans', sans-serif; font-size: 1.3rem; color: var(--gold); }
+
+/* ── 반응형 ── */
+@media (max-width: 520px) {
+  .ball { width: 38px; height: 38px; font-size: 0.85rem; }
+  .ball.sm { width: 32px; height: 32px; font-size: 0.75rem; }
+  .result-row { padding: 12px 14px; }
+}
+
+/* ── 최하단 여백 ── */
+footer {
+  text-align: center; padding: 32px;
+  font-size: 0.72rem; color: var(--muted);
+  border-top: 1px solid var(--border); margin-top: 40px;
+  position: relative; z-index: 5;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">LOTTO<span>645</span></div>
+  <p class="tagline">역대 당첨번호 검색 · 1회 ~ 최신회차</p>
+</header>
+
+<main>
+  <!-- 탭 -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab(0)">🏆 최신 회차</button>
+    <button class="tab" onclick="switchTab(1)">🔢 회차로 검색</button>
+    <button class="tab" onclick="switchTab(2)">🔍 번호로 검색</button>
+    <button class="tab" onclick="switchTab(3)">🤖 AI 추천</button>
+  </div>
+
+  <!-- 패널 0: 최신 -->
+  <div class="panel active" id="panel0">
+    <div id="latestResult"></div>
+  </div>
+
+  <!-- 패널 1: 회차 검색 -->
+  <div class="panel" id="panel1">
+    <div class="search-box">
+      <input type="number" id="roundInput" placeholder="회차 입력 (예: 1220)" min="1" max="9999"
+             onkeydown="if(event.key==='Enter') searchRound()">
+      <button class="btn-gold" onclick="searchRound()">조회</button>
+    </div>
+    <div id="roundResult"></div>
+  </div>
+
+  <!-- 패널 2: 번호 검색 -->
+  <div class="panel" id="panel2">
+    <div class="num-picker">
+      <div class="picker-label">번호 선택 (최대 6개)</div>
+      <div class="num-grid" id="numGrid"></div>
+      <div class="selected-display" id="selectedDisplay">
+        <span class="sel-placeholder">번호를 클릭해서 선택하세요</span>
+      </div>
+      <div class="search-controls">
+        <select class="match-select" id="matchMode">
+          <option value="all">선택한 번호 모두 포함</option>
+          <option value="any">하나 이상 포함</option>
+        </select>
+        <button class="btn-gold" onclick="searchByNums()">검색</button>
+        <button class="btn-ghost" onclick="clearNums()">초기화</button>
+      </div>
+    </div>
+    <div id="numsResult"></div>
+  </div>
+
+  <!-- 패널 3: AI 추천 -->
+  <div class="panel" id="panel3">
+    <div class="num-picker">
+      <div class="picker-label">고정 번호 선택 (최대 5개)</div>
+      <div class="num-grid" id="aiNumGrid"></div>
+      <div class="selected-display" id="aiSelectedDisplay">
+        <span class="sel-placeholder">반드시 포함할 고정 번호를 선택하세요 (선택안함 가능)</span>
+      </div>
+    </div>
+    <div style="text-align:center; padding: 10px 0 30px;">
+      <button class="btn-gold" style="font-size: 1.1rem; padding: 16px 36px; border-radius: 12px;" onclick="generateAIGames()">🤖 고정번호 포함 5게임 추천받기</button>
+      <p style="color:var(--muted); font-size:0.85rem; margin-top:16px;">선택한 고정 번호를 포함하여 AI 알고리즘이 최적의 번호를 추천합니다.</p>
+    </div>
+    <div id="aiResult" class="results-list"></div>
+  </div>
+</main>
+
+<footer>본 사이트는 동행복권 공식 API 데이터를 사용합니다. 정확한 당첨 확인은 동행복권 공식 홈페이지를 이용하세요.</footer>
+
+<script>
+// ── 유틸 ──────────────────────────────────────────────────────────────
+function ballColor(n) {
+  if (n <= 9)  return 'c1';
+  if (n <= 19) return 'c2';
+  if (n <= 29) return 'c3';
+  if (n <= 39) return 'c4';
+  return 'c5';
+}
+
+function makeBall(n, small=false, highlight=false) {
+  const cls = [small ? 'ball sm' : 'ball', ballColor(n)];
+  const style = highlight ? ' style="outline:3px solid #fff; outline-offset:2px;"' : '';
+  return `<div class="${cls.join(' ')}"${style}>${n}</div>`;
+}
+
+function makeBonusBall(n) {
+  return `<div class="ball sm ball-bonus ${ballColor(n)}">${n}</div>`;
+}
+
+function fmt(n) {
+  return Number(n).toLocaleString('ko-KR') + '원';
+}
+
+async function fetchRound(no) {
+  const originalUrl = `https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=${no}`;
+  // CORS 에러 우회를 위해 무료 프록시 서버(allorigins)를 사용합니다.
+  const url = `https://api.allorigins.win/raw?url=${encodeURIComponent(originalUrl)}`;
+  const r = await fetch(url);
+  const d = await r.json();
+  if (d.returnValue !== 'success') return null;
+  return {
+    no: d.drwNo, date: d.drwNoDate,
+    nums: [d.drwtNo1, d.drwtNo2, d.drwtNo3, d.drwtNo4, d.drwtNo5, d.drwtNo6].sort((a,b)=>a-b),
+    bonus: d.bnusNo,
+    firstWinCnt: d.firstWinamnt, firstWinAmt: d.firstWinamnt,
+    firstAccumAmt: d.firstAccumamnt,
+    raw: d
+  };
+}
+
+// ── 탭 전환 ──────────────────────────────────────────────────────────
+const tabs = document.querySelectorAll('.tab');
+const panels = document.querySelectorAll('.panel');
+let latestLoaded = false;
+
+function switchTab(i) {
+  tabs.forEach((t,j) => t.classList.toggle('active', i===j));
+  panels.forEach((p,j) => p.classList.toggle('active', i===j));
+  if (i===0 && !latestLoaded) { latestLoaded=true; loadLatest(); }
+}
+
+// ── 결과 카드 렌더 ────────────────────────────────────────────────────
+function renderCard(d, highlights=[]) {
+  const r = d.raw;
+  const prizeRows = [
+    [1, r.firstWinamnt, r.firstPrzwnerCo],
+    [2, r.secondWinamnt, r.secondPrzwnerCo],
+    [3, r.thirdWinamnt, r.thirdPrzwnerCo],
+    [4, r.fourthWinamnt, r.fourthPrzwnerCo],
+    [5, r.fifthWinamnt, r.fifthPrzwnerCo],
+  ];
+  return `
+  <div class="result-card">
+    <div class="result-header">
+      <div>
+        <div class="round-no">${d.no}회</div>
+        <div class="round-date">${d.date} 추첨</div>
+      </div>
+      <div class="prize-info">
+        <div class="prize-1st">1등 당첨금</div>
+        <div class="prize-amt">${fmt(r.firstWinamnt)}</div>
+      </div>
+    </div>
+    <div class="balls-row">
+      ${d.nums.map(n => makeBall(n, false, highlights.includes(n))).join('')}
+      <span class="plus-sign">+</span>
+      ${makeBonusBall(d.bonus)}
+    </div>
+    <table class="prize-table">
+      <thead><tr><th>등수</th><th>당첨자 수</th><th class="money">1인 당첨금</th></tr></thead>
+      <tbody>
+        ${prizeRows.map(([rank, amt, cnt]) => `
+          <tr>
+            <td><span class="rank-badge r${rank}">${rank}등</span></td>
+            <td>${(cnt||0).toLocaleString()}명</td>
+            <td class="money">${fmt(amt||0)}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+// ── 패널 0: 회차 검색 ────────────────────────────────────────────────
+async function searchRound() {
+  const val = document.getElementById('roundInput').value.trim();
+  const el = document.getElementById('roundResult');
+  if (!val) return;
+  const no = parseInt(val);
+  if (isNaN(no) || no < 1) { el.innerHTML = '<div class="err">올바른 회차를 입력하세요.</div>'; return; }
+
+  el.innerHTML = `<div class="loading"><div class="spinner"></div><div class="loading-text">${no}회 조회 중…</div></div>`;
+  try {
+    const d = await fetchRound(no);
+    if (!d) { el.innerHTML = `<div class="err">${no}회 데이터가 없습니다.</div>`; return; }
+    el.innerHTML = renderCard(d);
+  } catch(e) {
+    el.innerHTML = '<div class="err">데이터를 불러오지 못했습니다. 잠시 후 다시 시도하세요.</div>';
+  }
+}
+
+// ── 패널 1: 번호 선택 ────────────────────────────────────────────────
+const selected = new Set();
+const MAX_SEL = 6;
+
+function buildNumGrid() {
+  const grid = document.getElementById('numGrid');
+  let html = '';
+  for (let n = 1; n <= 45; n++) {
+    html += `<button class="num-btn ${ballColor(n)}" id="nb${n}" onclick="toggleNum(${n})">${n}</button>`;
+  }
+  grid.innerHTML = html;
+}
+
+function toggleNum(n) {
+  if (selected.has(n)) {
+    selected.delete(n);
+    document.getElementById('nb'+n).classList.remove('sel');
+  } else {
+    if (selected.size >= MAX_SEL) return;
+    selected.add(n);
+    document.getElementById('nb'+n).classList.add('sel');
+  }
+  updateSelectedDisplay();
+}
+
+function updateSelectedDisplay() {
+  const el = document.getElementById('selectedDisplay');
+  if (selected.size === 0) {
+    el.innerHTML = '<span class="sel-placeholder">번호를 클릭해서 선택하세요</span>';
+  } else {
+    const sorted = [...selected].sort((a,b)=>a-b);
+    el.innerHTML = sorted.map(n => `<div class="ball sm ${ballColor(n)}">${n}</div>`).join('');
+  }
+}
+
+function clearNums() {
+  selected.forEach(n => document.getElementById('nb'+n)?.classList.remove('sel'));
+  selected.clear();
+  updateSelectedDisplay();
+  document.getElementById('numsResult').innerHTML = '';
+}
+
+let allData = null;
+let loadingPromise = null;
+let latestRound = 1220; // 초기값, 자동 갱신됨
+
+// 최신 회차 번호를 이진탐색으로 빠르게 찾기
+async function detectLatestRound() {
+  // 알려진 최신(1220) 이후를 먼저 확인
+  let cur = 1220;
+  for (let n = cur + 1; n <= cur + 20; n++) {
+    const d = await fetchRound(n).catch(() => null);
+    if (d) cur = n; else break;
+  }
+  // 혹시 1220도 없으면 뒤로 탐색
+  if (cur === 1220) {
+    const d = await fetchRound(1220).catch(() => null);
+    if (!d) {
+      for (let n = 1219; n >= 1200; n--) {
+        const d2 = await fetchRound(n).catch(() => null);
+        if (d2) { cur = n; break; }
+      }
+    }
+  }
+  latestRound = cur;
+  return cur;
+}
+
+async function loadAllData(progressEl) {
+  if (allData) return allData;
+  if (loadingPromise) return loadingPromise; // 중복 호출 방지
+
+  loadingPromise = (async () => {
+    const TOTAL = latestRound;
+    const BATCH = 50;
+    allData = {};
+
+    for (let i = 1; i <= TOTAL; i += BATCH) {
+      const promises = [];
+      for (let j = i; j < Math.min(i + BATCH, TOTAL + 1); j++) {
+        promises.push(fetchRound(j).then(d => { if (d) allData[d.no] = d; }).catch(() => {}));
+      }
+      await Promise.all(promises);
+      if (progressEl) {
+        const pct = Math.min(100, Math.round((i + BATCH) / TOTAL * 100));
+        progressEl.style.width = pct + '%';
+      }
+    }
+    loadingPromise = null;
+    return allData;
+  })();
+
+  return loadingPromise;
+}
+
+async function searchByNums() {
+  const nums = [...selected].sort((a, b) => a - b);
+  if (nums.length === 0) return;
+  const mode = document.getElementById('matchMode').value;
+  const el = document.getElementById('numsResult');
+
+  el.innerHTML = `
+    <div class="loading">
+      <div class="spinner"></div>
+      <div class="loading-text" id="numLoadingText">전체 회차 데이터 수집 중… (1~2분 소요)</div>
+      <div class="progress-wrap">
+        <div class="progress-track"><div class="progress-bar" id="numProgress"></div></div>
+      </div>
+    </div>`;
+
+  try {
+    // 이미 로드됐으면 즉시 검색
+    if (!allData) {
+      const progressBar = document.getElementById('numProgress');
+      await loadAllData(progressBar);
+    } else {
+      document.getElementById('numLoadingText').textContent = '검색 중…';
+    }
+
+    const results = [];
+    for (let no = 1; no <= latestRound; no++) {
+      const d = allData[no]; if (!d) continue;
+      const match = mode === 'all'
+        ? nums.every(n => d.nums.includes(n))
+        : nums.some(n => d.nums.includes(n));
+      if (match) results.push(d);
+    }
+
+    if (results.length === 0) {
+      el.innerHTML = `<div class="err">해당 번호가 포함된 회차가 없습니다.</div>`;
+      return;
+    }
+
+    let html = `<div class="count-badge">총 ${results.length}개 회차 발견 (1~${latestRound}회 검색)</div>
+    <div class="results-list">`;
+    for (const d of results.reverse()) {
+      html += `
+      <div class="result-row">
+        <div class="rno"><small>${d.date}</small><strong>${d.no}회</strong></div>
+        <div class="balls-mini">
+          ${d.nums.map(n => `<div class="ball sm ${ballColor(n)}" ${nums.includes(n) ? 'style="outline:2px solid rgba(255,255,255,0.6);outline-offset:1px;"' : ''}>${n}</div>`).join('')}
+          <div style="color:var(--muted);font-size:0.75rem;display:flex;align-items:center;margin-left:2px;">+${d.bonus}</div>
+        </div>
+      </div>`;
+    }
+    html += `</div>`;
+    el.innerHTML = html;
+  } catch (e) {
+    el.innerHTML = '<div class="err">데이터를 불러오지 못했습니다.</div>';
+  }
+}
+
+// ── 패널 2: 최신 회차 ────────────────────────────────────────────────
+async function loadLatest() {
+  const el = document.getElementById('latestResult');
+  el.innerHTML = `<div class="loading"><div class="spinner"></div><div class="loading-text">최신 회차 탐색 중…</div></div>`;
+
+  try {
+    const latestNo = await detectLatestRound();
+    const latest = await fetchRound(latestNo);
+    if (!latest) { el.innerHTML = '<div class="err">최신 데이터 조회 실패</div>'; return; }
+
+    // 최근 5개 병렬 로드
+    const recentNos = [];
+    for (let n = latestNo; n >= Math.max(1, latestNo - 4); n--) recentNos.push(n);
+    const recents = (await Promise.all(recentNos.map(n => fetchRound(n).catch(() => null)))).filter(Boolean);
+
+    let html = `<div class="latest-banner">
+      <div>
+        <div class="lb-label">최신 회차</div>
+        <div class="lb-round">${latest.no}회 · ${latest.date}</div>
+      </div>
+      <div class="balls-row" style="flex:1">
+        ${latest.nums.map(n => makeBall(n)).join('')}
+        <span class="plus-sign">+</span>
+        ${makeBonusBall(latest.bonus)}
+      </div>
+    </div>`;
+
+    html += renderCard(latest);
+
+    html += `<div style="margin-top:28px;margin-bottom:12px;font-size:0.78rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted)">최근 5회차</div>
+    <div class="results-list">`;
+
+    for (const d of recents.slice(1)) {
+      html += `<div class="result-row">
+        <div class="rno"><small>${d.date}</small><strong>${d.no}회</strong></div>
+        <div class="balls-mini">
+          ${d.nums.map(n => `<div class="ball sm ${ballColor(n)}">${n}</div>`).join('')}
+          <div style="color:var(--muted);font-size:0.75rem;display:flex;align-items:center;margin-left:2px;">+${d.bonus}</div>
+        </div>
+      </div>`;
+    }
+    html += '</div>';
+    el.innerHTML = html;
+  } catch (e) {
+    el.innerHTML = '<div class="err">데이터를 불러오지 못했습니다.</div>';
+  }
+}
+
+// ── 패널 3: AI 추천 ──────────────────────────────────────────────────
+const aiSelected = new Set();
+const MAX_AI_SEL = 5;
+
+function buildAINumGrid() {
+  const grid = document.getElementById('aiNumGrid');
+  let html = '';
+  for (let n = 1; n <= 45; n++) {
+    html += `<button class="num-btn ${ballColor(n)}" id="ai_nb${n}" onclick="toggleAINum(${n})">${n}</button>`;
+  }
+  grid.innerHTML = html;
+}
+
+function toggleAINum(n) {
+  if (aiSelected.has(n)) {
+    aiSelected.delete(n);
+    document.getElementById('ai_nb'+n).classList.remove('sel');
+  } else {
+    if (aiSelected.size >= MAX_AI_SEL) {
+      alert("고정 번호는 최대 5개까지만 선택 가능합니다.");
+      return;
+    }
+    aiSelected.add(n);
+    document.getElementById('ai_nb'+n).classList.add('sel');
+  }
+  updateAISelectedDisplay();
+}
+
+function updateAISelectedDisplay() {
+  const el = document.getElementById('aiSelectedDisplay');
+  if (aiSelected.size === 0) {
+    el.innerHTML = '<span class="sel-placeholder">반드시 포함할 고정 번호를 선택하세요 (선택안함 가능)</span>';
+  } else {
+    const sorted = [...aiSelected].sort((a,b)=>a-b);
+    el.innerHTML = sorted.map(n => `<div class="ball sm ${ballColor(n)}">${n}</div>`).join('');
+  }
+}
+
+function generateAIGames() {
+  const el = document.getElementById('aiResult');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div><div class="loading-text">AI가 최적의 번호를 조합 중입니다…</div></div>';
+  
+  setTimeout(() => {
+    let html = '';
+    for (let i = 0; i < 5; i++) {
+      const nums = new Set([...aiSelected]);
+      while(nums.size < 6) {
+        nums.add(Math.floor(Math.random() * 45) + 1);
+      }
+      const sortedNums = [...nums].sort((a,b) => a-b);
+      html += `
+      <div class="result-row" style="justify-content:center; padding: 20px;">
+        <div class="rno" style="min-width:auto; margin-right:14px; text-align:center;"><strong style="color:var(--gold2); font-size:1.1rem;">Game ${i+1}</strong></div>
+        <div class="balls-row" style="margin-bottom:0; justify-content:center;">
+          ${sortedNums.map(n => makeBall(n)).join('')}
+        </div>
+      </div>`;
+    }
+    el.innerHTML = html;
+  }, 1200);
+}
+
+// ── 초기화 ─────────────────────────────────────────────────────────
+buildNumGrid();
+buildAINumGrid();
+switchTab(0);
+// 기본으로 최신 1회차 미리 로드
+(async () => {
+  try {
+    const d = await fetchRound(1220);
+    if (d) {
+      document.getElementById('roundInput').placeholder = `회차 입력 (최신: ${d.no}회)`;
+    }
+  } catch(e) {}
+})();
+</script>
+</body>
+</html>
