@@ -814,93 +814,41 @@
     }
 
     async function fetchRound(no) {
-      const targetUrl = `https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=${no}`;
-      const encodedUrl = encodeURIComponent(targetUrl);
-      let data = null;
+      // 지인 님이 방금 발급받으신 구글 전용 서버 주소입니다.
+      const GAS_URL = "https://script.google.com/macros/s/AKfycbwZbMLa-lnXLvOIFr12vi9cLFvIGReK_rGBTo17dhthaul4XALnYsUkauGUOs-G4a-DrA/exec";
 
-      // 1순위: CorsProxy (인코딩 절대 안 함 - 원본 주소 그대로)
-      if (!data) {
+      try {
+        // 1. 당첨 번호 데이터 가져오기 (구글 서버가 대신 동행복권에 접속합니다)
+        const r1 = await fetch(`${GAS_URL}?drwNo=${no}`);
+        const data = await r1.json();
+
+        if (!data || data.returnValue !== 'success') return null;
+
+        // 2. 자동/수동 당첨자 수 가져오기 (마찬가지로 구글 서버를 통합니다)
+        let autoCnt = null, manualCnt = null, semiCnt = null;
         try {
-          const r1 = await fetch(`https://corsproxy.io/?${targetUrl}`);
-          if (r1.ok) {
-            const parsed = await r1.json();
-            if (parsed && parsed.returnValue === 'success') data = parsed;
-          }
-        } catch (e) { console.log("CorsProxy 실패"); }
+          const r2 = await fetch(`${GAS_URL}?type=html&drwNo=${no}`);
+          const htmlText = await r2.text();
+          autoCnt = (htmlText.match(/<td>\s*자동\s*<\/td>/g) || []).length;
+          manualCnt = (htmlText.match(/<td>\s*수동\s*<\/td>/g) || []).length;
+          semiCnt = (htmlText.match(/<td>\s*반자동\s*<\/td>/g) || []).length;
+        } catch(e) { console.log("상세 정보 가져오기 에러"); }
+
+        return {
+          no: data.drwNo,
+          date: data.drwNoDate,
+          nums: [data.drwtNo1, data.drwtNo2, data.drwtNo3, data.drwtNo4, data.drwtNo5, data.drwtNo6].sort((a, b) => a - b),
+          bonus: data.bnusNo,
+          firstWinCnt: data.firstPrzwnerCo,
+          firstWinAmt: data.firstWinamnt,
+          firstAccumAmt: data.firstAccumamnt,
+          autoCnt, manualCnt, semiCnt,
+          raw: data
+        };
+      } catch (error) {
+        console.error("데이터 로드 실패:", error);
+        return null;
       }
-
-      // 2순위: CodeTabs (인코딩 안 함)
-      if (!data) {
-        try {
-          const r2 = await fetch(`https://api.codetabs.com/v1/proxy?quest=${targetUrl}`);
-          if (r2.ok) {
-            const parsed = await r2.json();
-            if (parsed && parsed.returnValue === 'success') data = parsed;
-          }
-        } catch (e) { console.log("CodeTabs 실패"); }
-      }
-
-      // 3순위: AllOrigins (얘만 유일하게 인코딩 필수)
-      if (!data) {
-        try {
-          const r3 = await fetch(`https://api.allorigins.win/get?url=${encodedUrl}`);
-          if (r3.ok) {
-            const json = await r3.json();
-            const parsed = JSON.parse(json.contents);
-            if (parsed && parsed.returnValue === 'success') data = parsed;
-          }
-        } catch (e) { console.log("AllOrigins 실패"); }
-      }
-
-      if (!data) return null;
-
-      // 1등 당첨 유형 (자동/수동) 크롤링 부분도 똑같이 수정
-      let autoCnt = null, manualCnt = null, semiCnt = null;
-      const htmlTargetUrl = `https://dhlottery.co.kr/gameResult.do?method=byWin&drwNo=${no}`;
-      const encodedHtmlUrl = encodeURIComponent(htmlTargetUrl);
-      let htmlText = null;
-
-      if (!htmlText) {
-        try {
-          const rHtml1 = await fetch(`https://corsproxy.io/?${htmlTargetUrl}`);
-          if (rHtml1.ok) htmlText = await rHtml1.text();
-        } catch(e) {}
-      }
-
-      if (!htmlText) {
-        try {
-          const rHtml2 = await fetch(`https://api.codetabs.com/v1/proxy?quest=${htmlTargetUrl}`);
-          if (rHtml2.ok) htmlText = await rHtml2.text();
-        } catch(e) {}
-      }
-
-      if (!htmlText) {
-        try {
-          const rHtml3 = await fetch(`https://api.allorigins.win/get?url=${encodedHtmlUrl}`);
-          if (rHtml3.ok) {
-            const json = await rHtml3.json();
-            htmlText = json.contents;
-          }
-        } catch(e) {}
-      }
-
-      if (htmlText) {
-        autoCnt = (htmlText.match(/<td>\s*자동\s*<\/td>/g) || []).length;
-        manualCnt = (htmlText.match(/<td>\s*수동\s*<\/td>/g) || []).length;
-        semiCnt = (htmlText.match(/<td>\s*반자동\s*<\/td>/g) || []).length;
-      }
-
-      return {
-        no: data.drwNo, 
-        date: data.drwNoDate,
-        nums: [data.drwtNo1, data.drwtNo2, data.drwtNo3, data.drwtNo4, data.drwtNo5, data.drwtNo6].sort((a, b) => a - b),
-        bonus: data.bnusNo,
-        firstWinCnt: data.firstPrzwnerCo, 
-        firstWinAmt: data.firstWinamnt,
-        firstAccumAmt: data.firstAccumamnt,
-        autoCnt, manualCnt, semiCnt,
-        raw: data
-      };
     }
 
     // ── 탭 전환 ──────────────────────────────────────────────────────────
