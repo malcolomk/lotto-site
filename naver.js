@@ -47,8 +47,9 @@ export default async function handler(req, res) {
         bnusNo: nums[6],
       };
       
-      // 당첨금 정보 파싱 (예: <strong>1,234,567,890<span>원</span></strong>)
-      const prizeRegex = /<strong>([\d,]+)<span>원<\/span><\/strong>/;
+      // 당첨금 정보 파싱 (예: 1등 당첨금 ... <strong>1,234,567,890</strong>원)
+      // 줄바꿈이 있을 수 있으므로 [\s\S]*? 사용
+      const prizeRegex = /1등 당첨금[\s\S]*?([\d,]+)[\s]*?(?:<[^>]+>)*원/;
       const prizeMatch = html.match(prizeRegex);
       if (prizeMatch) {
          data.firstWinamnt = parseInt(prizeMatch[1].replace(/,/g, ''), 10);
@@ -56,17 +57,17 @@ export default async function handler(req, res) {
          data.firstWinamnt = 0;
       }
       
-      // 당첨자 수 (예: <strong>12<span>명</span></strong>)
-      const cntRegex = /<strong>(\d+)<span>명<\/span><\/strong>/;
+      // 당첨자 수 (예: 당첨자 수 ... <strong>12</strong>명)
+      const cntRegex = /당첨자 수[\s\S]*?([\d,]+)[\s]*?(?:<[^>]+>)*명/;
       const cntMatch = html.match(cntRegex);
       if (cntMatch) {
-         data.firstPrzwnerCo = parseInt(cntMatch[1], 10);
+         data.firstPrzwnerCo = parseInt(cntMatch[1].replace(/,/g, ''), 10);
       } else {
          data.firstPrzwnerCo = 0;
       }
       
       // 추첨일 파싱: <span class="date">2024.04.13 추첨</span>
-      const dateRegex = /<span class="date">([\d.]+) 추첨<\/span>/;
+      const dateRegex = /([\d]{4}\.[\d]{2}\.[\d]{2})\s*추첨/;
       const dateMatch = html.match(dateRegex);
       if (dateMatch) {
          // "2024.04.13" -> "2024-04-13" 변환
@@ -75,7 +76,7 @@ export default async function handler(req, res) {
          data.drwNoDate = "날짜 정보 없음";
       }
 
-      // 누적 당첨금은 네이버에 잘 안나오므로 0으로 처리 (앱에서 크게 중요하지 않음)
+      // 누적 당첨금은 네이버에 잘 안나오므로 0으로 처리
       data.firstAccumamnt = 0;
 
       return res.status(200).json(data);
