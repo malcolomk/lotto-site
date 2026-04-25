@@ -1131,9 +1131,27 @@
           <div style="color:var(--muted);font-size:0.75rem;display:flex;align-items:center;margin-left:2px;">+${d.bonus}</div>
         </div>
       </div>
-      <div class="recent-detail" style="display:none; padding: 12px 16px; background: rgba(255,255,255,0.03); border-radius: 8px; margin-bottom: 12px; margin-top:-4px; text-align: center; font-size: 0.95rem; border: 1px solid var(--border);">
-        <span style="color:var(--muted);">1등 당첨:</span> <strong style="color:#fff;">${(d.raw.firstPrzwnerCo || 0).toLocaleString()}명</strong> &nbsp;|&nbsp; 
-        <span style="color:var(--muted);">1인당 당첨금:</span> <strong style="color:var(--gold);">${fmt(d.raw.firstWinamnt || 0)}</strong>
+      <div class="recent-detail" style="display:none; padding: 16px; background: rgba(255,255,255,0.03); border-radius: 12px; margin-bottom: 12px; margin-top:-4px; border: 1px solid var(--border);">
+        <table class="prize-table" style="margin-top:0; font-size: 0.8rem;">
+          <thead><tr><th>등수</th><th>당첨자 수</th><th class="money">1인 당첨금</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><span class="rank-badge r1">1등</span></td>
+              <td>${(d.raw.firstPrzwnerCo || 0).toLocaleString()}명</td>
+              <td class="money" style="color:var(--gold); font-weight:bold;">${fmt(d.raw.firstWinamnt || 0)}</td>
+            </tr>
+            <tr>
+              <td><span class="rank-badge r2">2등</span></td>
+              <td>${(d.raw.secondPrzwnerCo || 0).toLocaleString()}명</td>
+              <td class="money">${fmt(d.raw.secondWinamnt || 0)}</td>
+            </tr>
+            <tr>
+              <td><span class="rank-badge r3">3등</span></td>
+              <td>${(d.raw.thirdPrzwnerCo || 0).toLocaleString()}명</td>
+              <td class="money">${fmt(d.raw.thirdWinamnt || 0)}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>`;
         }
         html += '</div>';
