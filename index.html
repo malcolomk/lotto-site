@@ -710,7 +710,7 @@
 
   <header>
     <div class="logo">LOTTO<span>645</span></div>
-    <p class="tagline">역대 당첨번호 검색 · 1회 ~ 최신회차</p>
+    <p class="tagline">로또 번호 검색 AI 번호 추천 내 근처 명당</p>
   </header>
 
   <main>
@@ -814,39 +814,42 @@
     }
 
     async function fetchRound(no) {
-      // 지인 님이 방금 발급받으신 구글 전용 서버 주소입니다.
-      const GAS_URL = "https://script.google.com/macros/s/AKfycbwZbMLa-lnXLvOIFr12vi9cLFvIGReK_rGBTo17dhthaul4XALnYsUkauGUOs-G4a-DrA/exec";
+      // Vercel 프록시 경로를 통해 직접 호출 (가장 안정적)
+      const apiUrl = `/api/lotto?method=getLottoNumber&drwNo=${no}`;
 
       try {
-        // 1. 당첨 번호 데이터 가져오기 (구글 서버가 대신 동행복권에 접속합니다)
-        const r1 = await fetch(`${GAS_URL}?drwNo=${no}`);
-        const data = await r1.json();
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), 6000); // 6초 대기
+        const r = await fetch(apiUrl, { signal: controller.signal });
+        clearTimeout(id);
 
-        if (!data || data.returnValue !== 'success') return null;
+        if (!r.ok) return null;
+        const d = await r.json();
+        if (!d || d.returnValue !== 'success') return null;
 
-        // 2. 자동/수동 당첨자 수 가져오기 (마찬가지로 구글 서버를 통합니다)
+        // 1등 유형 (자동/수동) 크롤링
         let autoCnt = null, manualCnt = null, semiCnt = null;
         try {
-          const r2 = await fetch(`${GAS_URL}?type=html&drwNo=${no}`);
-          const htmlText = await r2.text();
-          autoCnt = (htmlText.match(/<td>\s*자동\s*<\/td>/g) || []).length;
-          manualCnt = (htmlText.match(/<td>\s*수동\s*<\/td>/g) || []).length;
-          semiCnt = (htmlText.match(/<td>\s*반자동\s*<\/td>/g) || []).length;
-        } catch(e) { console.log("상세 정보 가져오기 에러"); }
+          const htmlUrl = `/api/lotto-html?method=byWin&drwNo=${no}`;
+          const r2 = await fetch(htmlUrl);
+          if (r2.ok) {
+            const htmlText = await r2.text();
+            autoCnt = (htmlText.match(/<td>\s*자동\s*<\/td>/g) || []).length;
+            manualCnt = (htmlText.match(/<td>\s*수동\s*<\/td>/g) || []).length;
+            semiCnt = (htmlText.match(/<td>\s*반자동\s*<\/td>/g) || []).length;
+          }
+        } catch (e) { }
 
         return {
-          no: data.drwNo,
-          date: data.drwNoDate,
-          nums: [data.drwtNo1, data.drwtNo2, data.drwtNo3, data.drwtNo4, data.drwtNo5, data.drwtNo6].sort((a, b) => a - b),
-          bonus: data.bnusNo,
-          firstWinCnt: data.firstPrzwnerCo,
-          firstWinAmt: data.firstWinamnt,
-          firstAccumAmt: data.firstAccumamnt,
+          no: d.drwNo, date: d.drwNoDate,
+          nums: [d.drwtNo1, d.drwtNo2, d.drwtNo3, d.drwtNo4, d.drwtNo5, d.drwtNo6].sort((a, b) => a - b),
+          bonus: d.bnusNo,
+          firstWinCnt: d.firstPrzwnerCo, firstWinAmt: d.firstWinamnt,
+          firstAccumAmt: d.firstAccumamnt,
           autoCnt, manualCnt, semiCnt,
-          raw: data
+          raw: d
         };
-      } catch (error) {
-        console.error("데이터 로드 실패:", error);
+      } catch (e) {
         return null;
       }
     }
@@ -1226,40 +1229,40 @@
 
     function findNearbyStores() {
       const el = document.getElementById('storesResult');
-      
+
       if (!navigator.geolocation) {
         el.innerHTML = '<div class="err">이 브라우저에서는 위치 정보(GPS)를 지원하지 않습니다.</div>';
         return;
       }
-      
+
       el.innerHTML = '<div class="loading"><div class="spinner"></div><div class="loading-text">위치 정보를 받아오는 중… (스마트폰 GPS를 켜고 권한을 허용해 주세요)</div></div>';
-      
+
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const userLat = position.coords.latitude;
           const userLng = position.coords.longitude;
-          
+
           const storesWithDistance = topStores.map(store => {
             return {
               ...store,
               distance: getDistance(userLat, userLng, store.lat, store.lng)
             };
           });
-          
+
           // ★ 수정된 부분 1: 당첨 횟수가 아닌 '거리(distance)가 가까운 순'으로 오름차순 정렬
           storesWithDistance.sort((a, b) => a.distance - b.distance);
-          
+
           // ★ 수정된 부분 2: 너무 많이 보여주면 복잡하므로, 가장 가까운 상위 5곳만 잘라서 보여주기
           let nearby = storesWithDistance.slice(0, 5);
-          
+
           let html = `<div class="count-badge">내 위치 기준 가장 가까운 명당 (최대 5곳)</div>
           <div class="results-list">`;
-          
+
           nearby.forEach((s, idx) => {
             html += `
             <div class="result-row" style="align-items:flex-start; flex-direction:column; gap:8px; position:relative;">
               <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
-                <div style="font-size:1.05rem; font-weight:700; color:var(--text);">${idx+1}. ${s.name}</div>
+                <div style="font-size:1.05rem; font-weight:700; color:var(--text);">${idx + 1}. ${s.name}</div>
                 <div style="background:var(--gold); color:#000; font-weight:700; padding:3px 8px; border-radius:6px; font-size:0.85rem;">1등 ${s.wins}번</div>
               </div>
               <div style="font-size:0.85rem; color:var(--muted);">${s.address}</div>
