@@ -66,12 +66,14 @@ export default async function handler(req, res) {
          data.firstPrzwnerCo = 0;
       }
       
-      // 추첨일 파싱: <span class="date">2024.04.13 추첨</span>
-      const dateRegex = /([\d]{4}\.[\d]{2}\.[\d]{2})\s*추첨/;
+      // 추첨일 파싱: <span class="date">2024.04.13 추첨</span> 또는 2024년 04월 13일 추첨
+      const dateRegex = /([\d]{4})[년.\-\s]*([\d]{1,2})[월.\-\s]*([\d]{1,2})[일\s]*추첨/;
       const dateMatch = html.match(dateRegex);
       if (dateMatch) {
-         // "2024.04.13" -> "2024-04-13" 변환
-         data.drwNoDate = dateMatch[1].replace(/\./g, '-');
+         const y = dateMatch[1];
+         const m = dateMatch[2].padStart(2, '0');
+         const d = dateMatch[3].padStart(2, '0');
+         data.drwNoDate = `${y}-${m}-${d}`;
       } else {
          data.drwNoDate = "날짜 정보 없음";
       }
