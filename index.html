@@ -843,67 +843,54 @@
     }
 
     async function fetchRound(no) {
-      // 1순위: 네이버 파싱 (Vercel Serverless Function)
+      const GAS_URL = "https://script.google.com/macros/s/AKfycbwZbMLa-lnXLvOIFr12vi9cLFvIGReK_rGBTo17dhthaul4XALnYsUkauGUOs-G4a-DrA/exec";
+      let data = null;
+
       try {
-        const controller = new AbortController();
-        const id = setTimeout(() => controller.abort(), 6000);
-        const r = await fetch(`/api/naver?drwNo=${no}`, { signal: controller.signal });
-        clearTimeout(id);
+        const r1 = await fetch(`${GAS_URL}?drwNo=${no}`);
+        const d = await r1.json();
         
-        if (r.ok) {
-          const d = await r.json();
-          if (d && d.returnValue === 'success') {
-            return {
-              no: d.drwNo, date: d.drwNoDate,
-              nums: [d.drwtNo1, d.drwtNo2, d.drwtNo3, d.drwtNo4, d.drwtNo5, d.drwtNo6].sort((a, b) => a - b),
-              bonus: d.bnusNo,
-              firstWinCnt: d.firstPrzwnerCo, firstWinAmt: d.firstWinamnt,
-              firstAccumAmt: 0,
-              autoCnt: null, manualCnt: null, semiCnt: null,
-              raw: d
-            };
-          }
+        if (d && d.returnValue === 'success') {
+          let autoCnt = null, manualCnt = null, semiCnt = null;
+          try {
+            const r2 = await fetch(`${GAS_URL}?type=html&drwNo=${no}`);
+            if (r2.ok) {
+              const htmlText = await r2.text();
+              autoCnt = (htmlText.match(/<td>\s*자동\s*<\/td>/g) || []).length;
+              manualCnt = (htmlText.match(/<td>\s*수동\s*<\/td>/g) || []).length;
+              semiCnt = (htmlText.match(/<td>\s*반자동\s*<\/td>/g) || []).length;
+            }
+          } catch(e) {}
+
+          return {
+            no: d.drwNo, date: d.drwNoDate,
+            nums: [d.drwtNo1, d.drwtNo2, d.drwtNo3, d.drwtNo4, d.drwtNo5, d.drwtNo6].sort((a, b) => a - b),
+            bonus: d.bnusNo,
+            firstWinCnt: d.firstPrzwnerCo, firstWinAmt: d.firstWinamnt,
+            firstAccumAmt: d.firstAccumamnt,
+            autoCnt, manualCnt, semiCnt,
+            raw: d
+          };
         }
-      } catch (e) { console.log('네이버 파싱 실패, 동행복권으로 폴백'); }
+      } catch (e) { console.log('GAS 실패'); }
 
-      // 2순위: Vercel 동행복권 프록시 경로
-      const apiUrl = `/api/lotto?method=getLottoNumber&drwNo=${no}`;
-
+      // 폴백: 네이버 파싱
       try {
-        const controller = new AbortController();
-        const id = setTimeout(() => controller.abort(), 6000); // 6초 대기
-        const r = await fetch(apiUrl, { signal: controller.signal });
-        clearTimeout(id);
-
-        if (!r.ok) return null;
+        const r = await fetch(`/api/naver?drwNo=${no}`);
         const d = await r.json();
-        if (!d || d.returnValue !== 'success') return null;
-
-        // 1등 유형 (자동/수동) 크롤링
-        let autoCnt = null, manualCnt = null, semiCnt = null;
-        try {
-          const htmlUrl = `/api/lotto-html?method=byWin&drwNo=${no}`;
-          const r2 = await fetch(htmlUrl);
-          if (r2.ok) {
-            const htmlText = await r2.text();
-            autoCnt = (htmlText.match(/<td>\s*자동\s*<\/td>/g) || []).length;
-            manualCnt = (htmlText.match(/<td>\s*수동\s*<\/td>/g) || []).length;
-            semiCnt = (htmlText.match(/<td>\s*반자동\s*<\/td>/g) || []).length;
-          }
-        } catch (e) { }
-
-        return {
-          no: d.drwNo, date: d.drwNoDate,
-          nums: [d.drwtNo1, d.drwtNo2, d.drwtNo3, d.drwtNo4, d.drwtNo5, d.drwtNo6].sort((a, b) => a - b),
-          bonus: d.bnusNo,
-          firstWinCnt: d.firstPrzwnerCo, firstWinAmt: d.firstWinamnt,
-          firstAccumAmt: d.firstAccumamnt,
-          autoCnt, manualCnt, semiCnt,
-          raw: d
-        };
-      } catch (e) {
-        return null;
-      }
+        if (d && d.returnValue === 'success') {
+          return {
+            no: d.drwNo, date: d.drwNoDate,
+            nums: [d.drwtNo1, d.drwtNo2, d.drwtNo3, d.drwtNo4, d.drwtNo5, d.drwtNo6].sort((a, b) => a - b),
+            bonus: d.bnusNo,
+            firstWinCnt: d.firstPrzwnerCo, firstWinAmt: d.firstWinamnt,
+            firstAccumAmt: 0,
+            autoCnt: null, manualCnt: null, semiCnt: null,
+            raw: d
+          };
+        }
+      } catch (err) {}
+      return null;
     }
 
     // ── 탭 전환 ──────────────────────────────────────────────────────────
@@ -928,6 +915,12 @@
         </div>`;
       }
 
+      const prizeRows = [
+        [1, r.firstWinamnt, r.firstPrzwnerCo],
+        [2, r.secondWinamnt, r.secondPrzwnerCo],
+        [3, r.thirdWinamnt, r.thirdPrzwnerCo],
+      ];
+
       return `
   <div class="result-card">
     <div class="result-header">
@@ -937,7 +930,7 @@
       </div>
       <div class="prize-info">
         <div class="prize-1st">1등 당첨: 총 ${(r.firstPrzwnerCo || 0).toLocaleString()}명</div>
-        <div class="prize-amt">${fmt(r.firstWinamnt)} <span style="font-size:0.8rem;font-weight:normal;color:#ccc;">(1인당)</span></div>
+        <div class="prize-amt">${fmt(r.firstWinamnt || 0)} <span style="font-size:0.8rem;font-weight:normal;color:#ccc;">(1인당)</span></div>
       </div>
     </div>
     <div class="balls-row">
@@ -946,6 +939,20 @@
       ${makeBonusBall(d.bonus)}
     </div>
     ${winTypesHtml}
+    
+    <!-- 1등, 2등, 3등 당첨 정보 테이블 -->
+    <table class="prize-table" style="margin-top:20px;">
+      <thead><tr><th>등수</th><th>당첨자 수</th><th class="money">1인 당첨금</th></tr></thead>
+      <tbody>
+        ${prizeRows.map(([rank, amt, cnt]) => `
+          <tr>
+            <td><span class="rank-badge r${rank}">${rank}등</span></td>
+            <td>${(cnt || 0).toLocaleString()}명</td>
+            <td class="money" style="${rank===1?'color:var(--gold);font-weight:bold;':''}">${fmt(amt || 0)}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
   </div>`;
     }
 
