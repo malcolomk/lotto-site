@@ -47,9 +47,8 @@ export default async function handler(req, res) {
         bnusNo: nums[6],
       };
       
-      // 당첨금 정보 파싱 (예: 1등 당첨금 ... <strong>1,234,567,890</strong>원)
-      // 줄바꿈이 있을 수 있으므로 [\s\S]*? 사용
-      const prizeRegex = /1등 당첨금[\s\S]*?([\d,]+)[\s]*?(?:<[^>]+>)*원/;
+      // 당첨금 정보 파싱 (예: 1등 당첨금 <strong>1,234</strong>원)
+      const prizeRegex = /1등\s*당첨금[\s\S]{0,50}?([\d,]{4,})[\s\S]{0,20}?원/;
       const prizeMatch = html.match(prizeRegex);
       if (prizeMatch) {
          data.firstWinamnt = parseInt(prizeMatch[1].replace(/,/g, ''), 10);
@@ -57,8 +56,8 @@ export default async function handler(req, res) {
          data.firstWinamnt = 0;
       }
       
-      // 당첨자 수 (예: 당첨자 수 ... <strong>12</strong>명)
-      const cntRegex = /당첨자 수[\s\S]*?([\d,]+)[\s]*?(?:<[^>]+>)*명/;
+      // 당첨자 수 (예: (당첨자수 12명) 또는 (14게임))
+      const cntRegex = /\([\s\S]{0,20}?([\d]{1,3})\s*(?:명|게임)\s*\)/;
       const cntMatch = html.match(cntRegex);
       if (cntMatch) {
          data.firstPrzwnerCo = parseInt(cntMatch[1].replace(/,/g, ''), 10);
@@ -66,8 +65,8 @@ export default async function handler(req, res) {
          data.firstPrzwnerCo = 0;
       }
       
-      // 추첨일 파싱: <span class="date">2024.04.13 추첨</span> 또는 2024년 04월 13일 추첨
-      const dateRegex = /([\d]{4})[년.\-\s]*([\d]{1,2})[월.\-\s]*([\d]{1,2})[일\s]*추첨/;
+      // 추첨일 파싱 (예: 2024.04.13. 추첨 또는 2024년 4월 13일 추첨)
+      const dateRegex = /([\d]{4})[년.\-\s]+([\d]{1,2})[월.\-\s]+([\d]{1,2})[일.\-\s]+추첨/;
       const dateMatch = html.match(dateRegex);
       if (dateMatch) {
          const y = dateMatch[1];
