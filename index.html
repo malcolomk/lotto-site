@@ -719,6 +719,150 @@
       font-family: 'Space Mono', monospace;
       font-weight: 700;
     }
+    /* ── 메인 내비게이션 (1단 탭) ── */
+    .main-nav {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      margin: 8px auto 0;
+      max-width: 860px;
+      padding: 0 20px;
+    }
+
+    .main-tab {
+      padding: 8px 20px;
+      text-align: center;
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+      border-radius: 8px 8px 0 0;
+      transition: all 0.2s;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-bottom: none;
+      background: var(--bg2);
+      opacity: 0.6;
+      min-width: 110px;
+    }
+
+    .main-tab.active {
+      opacity: 1;
+      background: var(--bg3);
+      color: var(--gold);
+      border-color: var(--gold);
+      position: relative;
+    }
+
+    .main-tab.active::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--bg3);
+      z-index: 10;
+    }
+
+    /* ── 계산기 패널 스타일 ── */
+    .calc-container {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px 24px;
+    }
+
+    .calc-input-group {
+      margin-bottom: 24px;
+    }
+
+    .calc-input-label {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 10px;
+      display: block;
+    }
+
+    .calc-input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .calc-input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 50px 18px 20px;
+      color: var(--text);
+      font-size: 1.5rem;
+      font-family: 'Space Mono', monospace;
+      font-weight: 700;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .calc-input:focus {
+      border-color: var(--gold);
+    }
+
+    .calc-input-unit {
+      position: absolute;
+      right: 20px;
+      font-size: 1.2rem;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .calc-result-box {
+      background: var(--bg3);
+      border-radius: 12px;
+      padding: 24px;
+      margin-top: 32px;
+      border: 1px solid var(--border);
+    }
+
+    .calc-result-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .calc-result-row:last-child {
+      margin-bottom: 0;
+      padding-top: 16px;
+      border-top: 1px dashed var(--border);
+    }
+
+    .calc-result-label {
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .calc-result-value {
+      font-family: 'Space Mono', monospace;
+      font-size: 1.1rem;
+      font-weight: 500;
+    }
+
+    .calc-result-value.total {
+      font-size: 1.8rem;
+      color: var(--gold);
+      font-weight: 700;
+    }
+
+    .calc-info {
+      margin-top: 24px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .calc-info b {
+      color: var(--text);
+    }
   </style>
 </head>
 
@@ -729,16 +873,23 @@
     <p class="tagline">로또 검색 한눈에 </p>
   </header>
 
+  <nav class="main-nav">
+    <button class="main-tab active" onclick="switchMainTab(0)">로또 한눈에</button>
+    <button class="main-tab" onclick="switchMainTab(1)">실수령 계산기</button>
+  </nav>
+
   <main>
-    <!-- 탭 -->
-    <div class="tabs">
-      <button class="tab active" onclick="switchTab(0)">🏆 최신 회차</button>
-      <button class="tab" onclick="switchTab(1)">🔢 회차로 검색</button>
-      <button class="tab" onclick="switchTab(2)">🔍 번호로 검색</button>
-      <button class="tab" onclick="switchTab(3)">🤖 AI 추천</button>
-      <button class="tab" onclick="switchTab(4)">🌙 해몽 분석</button>
-      <button class="tab" onclick="switchTab(5)">📍 근처 명당</button>
-    </div>
+    <!-- 로또 섹션 -->
+    <div id="lottoSection">
+      <!-- 탭 -->
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab(0)">🏆 최신 회차</button>
+        <button class="tab" onclick="switchTab(1)">🔢 회차로 검색</button>
+        <button class="tab" onclick="switchTab(2)">🔍 번호로 검색</button>
+        <button class="tab" onclick="switchTab(3)">🤖 AI 추천</button>
+        <button class="tab" onclick="switchTab(4)">🌙 해몽 분석</button>
+        <button class="tab" onclick="switchTab(5)">📍 근처 명당</button>
+      </div>
 
     <!-- 패널 0: 최신 -->
     <div class="panel active" id="panel0">
@@ -810,14 +961,51 @@
 
     <!-- 패널 5: 근처 명당 -->
     <div class="panel" id="panel5">
-      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 350px; text-align: center; background: var(--bg2); border-radius: 16px; border: 1px solid var(--border); padding: 40px; margin: 10px 0;">
-        <div style="font-size: 3.5rem; margin-bottom: 24px; animation: fadeIn 1s ease;">📍</div>
-        <h2 style="font-family: 'Black Han Sans', sans-serif; font-size: 1.8rem; color: var(--gold); margin-bottom: 16px; letter-spacing: 0.05em;">서비스 준비 중</h2>
-        <p style="color: var(--muted); font-size: 1rem; line-height: 1.7; font-weight: 300;">
-          더 정확하고 풍성한 명당 정보를 제공하기 위해<br>
-          <span style="color: var(--text);">현재 서비스 고도화 작업이 진행 중입니다.</span><br>
-          빠른 시일 내에 더 좋은 서비스로 찾아뵙겠습니다.
-        </p>
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 350px; text-align: center; background: var(--bg2); border-radius: 16px; border: 1px solid var(--border); padding: 40px; margin: 10px 0;">
+          <div style="font-size: 3.5rem; margin-bottom: 24px; animation: fadeIn 1s ease;">📍</div>
+          <h2 style="font-family: 'Black Han Sans', sans-serif; font-size: 1.8rem; color: var(--gold); margin-bottom: 16px; letter-spacing: 0.05em;">서비스 준비 중</h2>
+          <p style="color: var(--muted); font-size: 1rem; line-height: 1.7; font-weight: 300;">
+            더 정확하고 풍성한 명당 정보를 제공하기 위해<br>
+            <span style="color: var(--text);">현재 서비스 고도화 작업이 진행 중입니다.</span><br>
+            빠른 시일 내에 더 좋은 서비스로 찾아뵙겠습니다.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 계산기 섹션 -->
+    <div id="calcSection" style="display:none;">
+      <div class="calc-container">
+        <div class="calc-input-group">
+          <label class="calc-input-label">당첨 금액을 입력하세요</label>
+          <div class="calc-input-wrapper">
+            <input type="text" class="calc-input" id="calcInput" placeholder="0" oninput="handleCalcInput(this)">
+            <span class="calc-input-unit">원</span>
+          </div>
+        </div>
+
+        <div class="calc-result-box">
+          <div class="calc-result-row">
+            <span class="calc-result-label">총 당첨금</span>
+            <span class="calc-result-value" id="resTotal">0원</span>
+          </div>
+          <div class="calc-result-row">
+            <span class="calc-result-label">세금 합계 (소득세+지방소득세)</span>
+            <span class="calc-result-value" id="resTax" style="color: var(--b3);">-0원</span>
+          </div>
+          <div class="calc-result-row">
+            <span class="calc-result-label">실제 수령액</span>
+            <span class="calc-result-value total" id="resActual">0원</span>
+          </div>
+        </div>
+
+        <div class="calc-info">
+          <p><b>※ 세금 안내</b></p>
+          <p>• 5만 원 이하: 비과세</p>
+          <p>• 5만 원 초과 ~ 3억 원 이하: 22% (소득세 20% + 지방소득세 2%)</p>
+          <p>• 3억 원 초과: 33% (소득세 30% + 지방소득세 3%)</p>
+          <p style="margin-top: 8px;">* 3억 원 초과 시 3억 원까지는 22%, 초과분은 33%가 적용됩니다.</p>
+        </div>
       </div>
     </div>
   </main>
@@ -878,6 +1066,21 @@
     }
 
     // ── 탭 전환 ──────────────────────────────────────────────────────────
+    const mainTabs = document.querySelectorAll('.main-tab');
+    const lottoSection = document.getElementById('lottoSection');
+    const calcSection = document.getElementById('calcSection');
+
+    function switchMainTab(i) {
+      mainTabs.forEach((t, j) => t.classList.toggle('active', i === j));
+      if (i === 0) {
+        lottoSection.style.display = 'block';
+        calcSection.style.display = 'none';
+      } else {
+        lottoSection.style.display = 'none';
+        calcSection.style.display = 'block';
+      }
+    }
+
     const tabs = document.querySelectorAll('.tab');
     const panels = document.querySelectorAll('.panel');
     let latestLoaded = false;
@@ -1371,9 +1574,40 @@
       }
     }
 
+    // ── 패널 6: 실 수령 계산기 ──────────────────────────────────────────────
+    function handleCalcInput(el) {
+      let val = el.value.replace(/[^0-9]/g, '');
+      if (val === '') {
+        el.value = '';
+        updateCalc(0);
+        return;
+      }
+      const num = parseInt(val);
+      el.value = num.toLocaleString();
+      updateCalc(num);
+    }
+
+    function updateCalc(amt) {
+      let tax = 0;
+      if (amt > 50000) {
+        if (amt <= 300000000) {
+          tax = amt * 0.22;
+        } else {
+          tax = (300000000 * 0.22) + ((amt - 300000000) * 0.33);
+        }
+      }
+      
+      const actual = amt - tax;
+
+      document.getElementById('resTotal').textContent = amt.toLocaleString() + '원';
+      document.getElementById('resTax').textContent = '-' + Math.floor(tax).toLocaleString() + '원';
+      document.getElementById('resActual').textContent = Math.floor(actual).toLocaleString() + '원';
+    }
+
     // ── 초기화 ─────────────────────────────────────────────────────────
     buildNumGrid();
     buildAINumGrid();
+    switchMainTab(0);
     switchTab(0);
     // 기본으로 최신 1회차 미리 로드
     (async () => {
