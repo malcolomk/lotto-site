@@ -6,7 +6,7 @@
     crossorigin="anonymous"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LOTTO — 당첨번호 검색</title>
+  <title>로또 한눈에 — 당첨번호 검색</title>
   <link
     href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@300;400;500;700&family=Space+Mono:wght@400;700&display=swap"
     rel="stylesheet">
@@ -765,8 +765,10 @@
     <!-- 패널 4: 근처 명당 -->
     <div class="panel" id="panel4">
       <div style="text-align:center; padding: 10px 0 30px;">
-        <button class="btn-gold" style="font-size: 1.1rem; padding: 16px 36px; border-radius: 12px;" onclick="findNearbyStores()">📍 내 위치로 근처 명당 찾기</button>
-        <p style="color:var(--muted); font-size:0.85rem; margin-top:16px;">전국 1등 최상위 배출 명당 중 내 주변에서 가장 가까운 매장을 당첨 횟수 순으로 정렬합니다.<br>(위치 권한 허용 필요)</p>
+        <button class="btn-gold" style="font-size: 1.1rem; padding: 16px 36px; border-radius: 12px;"
+          onclick="findNearbyStores()">📍 내 위치로 근처 명당 찾기</button>
+        <p style="color:var(--muted); font-size:0.85rem; margin-top:16px;">전국 1등 최상위 배출 명당 중 내 주변에서 가장 가까운 매장을 당첨 횟수 순으로
+          정렬합니다.<br>(위치 권한 허용 필요)</p>
       </div>
       <div id="storesResult" class="results-list"></div>
     </div>
@@ -799,55 +801,44 @@
     }
 
     async function fetchRound(no) {
-      const originalUrl = `https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=${no}`;
-      
-      const proxies = [
-        (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-        (url) => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`,
-        (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
-      ];
+      // Vercel 프록시 경로를 통해 직접 호출
+      const apiUrl = `/api/lotto?method=getLottoNumber&drwNo=${no}`;
 
-      let d = null;
-      for (const proxy of proxies) {
-        try {
-          const url = proxy(originalUrl);
-          const controller = new AbortController();
-          const id = setTimeout(() => controller.abort(), 4000);
-          const r = await fetch(url, { signal: controller.signal });
-          clearTimeout(id);
-          if (!r.ok) continue;
-          d = await r.json();
-          if (d && d.returnValue === 'success') break;
-        } catch (e) { /* fallback to next proxy */ }
-      }
-
-      if (!d || d.returnValue !== 'success') return null;
-
-      // 1등 유형 (자동/수동) 크롤링
-      let autoCnt = null, manualCnt = null, semiCnt = null;
       try {
-        const htmlUrl = `https://dhlottery.co.kr/gameResult.do?method=byWin&drwNo=${no}`;
         const controller = new AbortController();
-        const id = setTimeout(() => controller.abort(), 3500);
-        const r2 = await fetch(proxies[0](htmlUrl), { signal: controller.signal });
+        const id = setTimeout(() => controller.abort(), 5000); // 5초 대기
+        const r = await fetch(apiUrl, { signal: controller.signal });
         clearTimeout(id);
-        if (r2.ok) {
-          const htmlText = await r2.text();
-          autoCnt = (htmlText.match(/<td>\s*자동\s*<\/td>/g) || []).length;
-          manualCnt = (htmlText.match(/<td>\s*수동\s*<\/td>/g) || []).length;
-          semiCnt = (htmlText.match(/<td>\s*반자동\s*<\/td>/g) || []).length;
-        }
-      } catch(e) {}
 
-      return {
-        no: d.drwNo, date: d.drwNoDate,
-        nums: [d.drwtNo1, d.drwtNo2, d.drwtNo3, d.drwtNo4, d.drwtNo5, d.drwtNo6].sort((a, b) => a - b),
-        bonus: d.bnusNo,
-        firstWinCnt: d.firstWinamnt, firstWinAmt: d.firstWinamnt,
-        firstAccumAmt: d.firstAccumamnt,
-        autoCnt, manualCnt, semiCnt,
-        raw: d
-      };
+        if (!r.ok) return null;
+        const d = await r.json();
+        if (!d || d.returnValue !== 'success') return null;
+
+        // 1등 유형 (자동/수동) 크롤링
+        let autoCnt = null, manualCnt = null, semiCnt = null;
+        try {
+          const htmlUrl = `/api/lotto-html?method=byWin&drwNo=${no}`;
+          const r2 = await fetch(htmlUrl);
+          if (r2.ok) {
+            const htmlText = await r2.text();
+            autoCnt = (htmlText.match(/<td>\s*자동\s*<\/td>/g) || []).length;
+            manualCnt = (htmlText.match(/<td>\s*수동\s*<\/td>/g) || []).length;
+            semiCnt = (htmlText.match(/<td>\s*반자동\s*<\/td>/g) || []).length;
+          }
+        } catch (e) { }
+
+        return {
+          no: d.drwNo, date: d.drwNoDate,
+          nums: [d.drwtNo1, d.drwtNo2, d.drwtNo3, d.drwtNo4, d.drwtNo5, d.drwtNo6].sort((a, b) => a - b),
+          bonus: d.bnusNo,
+          firstWinCnt: d.firstPrzwnerCo, firstWinAmt: d.firstWinamnt,
+          firstAccumAmt: d.firstAccumamnt,
+          autoCnt, manualCnt, semiCnt,
+          raw: d
+        };
+      } catch (e) {
+        return null;
+      }
     }
 
     // ── 탭 전환 ──────────────────────────────────────────────────────────
@@ -871,7 +862,7 @@
         [4, r.fourthWinamnt, r.fourthPrzwnerCo],
         [5, r.fifthWinamnt, r.fifthPrzwnerCo],
       ];
-      
+
       let winTypesHtml = '';
       if (d.autoCnt !== null && d.manualCnt !== null) {
         winTypesHtml = `<div style="font-size:0.75rem; color:var(--muted); margin-top:6px; text-align:right;">
@@ -983,11 +974,11 @@
       const diffTime = now.getTime() - firstDrawDate.getTime();
       const diffWeeks = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7));
       latestRound = 1 + diffWeeks;
-      
+
       // 당일 20:45분 이전이거나 아직 업데이트 안되었을 경우를 대비해 확인
-      const d = await fetchRound(latestRound).catch(()=>null);
+      const d = await fetchRound(latestRound).catch(() => null);
       if (!d) latestRound -= 1;
-      
+
       return latestRound;
     }
 
@@ -1216,10 +1207,10 @@
       const R = 6371; // km
       const dLat = (lat2 - lat1) * Math.PI / 180;
       const dLon = (lon2 - lon1) * Math.PI / 180;
-      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                Math.sin(dLon/2) * Math.sin(dLon/2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       return R * c;
     }
 
@@ -1231,7 +1222,7 @@
         return;
       }
       
-      el.innerHTML = '<div class="loading"><div class="spinner"></div><div class="loading-text">위치 정보를 받아오는 중… (브라우저 알림을 허용해주세요)</div></div>';
+      el.innerHTML = '<div class="loading"><div class="spinner"></div><div class="loading-text">위치 정보를 받아오는 중… (스마트폰 GPS를 켜고 권한을 허용해 주세요)</div></div>';
       
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -1245,18 +1236,13 @@
             };
           });
           
-          // 먼저 반경 50km 이내로 필터링
-          let nearby = storesWithDistance.filter(s => s.distance <= 50);
+          // ★ 수정된 부분 1: 당첨 횟수가 아닌 '거리(distance)가 가까운 순'으로 오름차순 정렬
+          storesWithDistance.sort((a, b) => a.distance - b.distance);
           
-          if (nearby.length > 0) {
-            // 반경 50km 이내에 매장이 있으면 당첨횟수 내림차순 정렬
-            nearby.sort((a, b) => b.wins - a.wins);
-          } else {
-            // 50km 내에 없으면 전국 매장 중 가장 가까운 5곳 거리순 정렬
-            nearby = storesWithDistance.sort((a, b) => a.distance - b.distance).slice(0, 5);
-          }
+          // ★ 수정된 부분 2: 너무 많이 보여주면 복잡하므로, 가장 가까운 상위 5곳만 잘라서 보여주기
+          let nearby = storesWithDistance.slice(0, 5);
           
-          let html = `<div class="count-badge">내 위치 기준 추천 명당 (${nearby.length}곳)</div>
+          let html = `<div class="count-badge">내 위치 기준 가장 가까운 명당 (최대 5곳)</div>
           <div class="results-list">`;
           
           nearby.forEach((s, idx) => {
@@ -1274,9 +1260,10 @@
           el.innerHTML = html;
         },
         (err) => {
-          el.innerHTML = '<div class="err">위치 정보를 가져오는데 실패했습니다. 권한 거부, 또는 브라우저 보안 정책(HTTPS 환경 필요) 때문일 수 있습니다.</div>';
+          el.innerHTML = '<div class="err">위치 정보를 가져오는데 실패했습니다. 권한 거부, 또는 스마트폰의 GPS 기능이 꺼져있을 수 있습니다.</div>';
         },
-        { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+        // ★ 수정된 부분 3: 스마트폰 실제 GPS를 사용하도록 정확도(enableHighAccuracy) 옵션을 true로 변경
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     }
 
