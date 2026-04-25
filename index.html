@@ -872,60 +872,56 @@
     function switchTab(i) {
       tabs.forEach((t, j) => t.classList.toggle('active', i === j));
       panels.forEach((p, j) => p.classList.toggle('active', i === j));
-      if (i === 0 && !latestLoaded) { latestLoaded = true; loadLatest(); }
-    }
+      if (i === 0 && !latestLoaded) { latestLoaded = true; loadLatest() {
+  const el = document.getElementById('latestResult');
+  el.innerHTML = `<div class="loading"><div class="spinner"></div><div class="loading-text">최신 회차 탐색 중…</div></div>`;
 
-    // ── 결과 카드 렌더 ────────────────────────────────────────────────────
-    function renderCard(d, highlights = []) {
-      const r = d.raw;
+  try {
+    const latestNo = await detectLatestRound();
+    const latest = await fetchRound(latestNo);
+    if (!latest) { el.innerHTML = '<div class="err">최신 데이터 조회 실패</div>'; return; }
 
-      let winTypesHtml = '';
-      if (d.autoCnt !== null && d.manualCnt !== null) {
-        winTypesHtml = `<div style="font-size:0.75rem; color:var(--muted); margin-top:6px; text-align:right;">
-          (자동 ${d.autoCnt}명 / 수동 ${d.manualCnt}명${d.semiCnt ? ` / 반자동 ${d.semiCnt}명` : ''})
-        </div>`;
-      }
+    // 최근 5개 병렬 로드
+    const recentNos = [];
+    for (let n = latestNo; n >= Math.max(1, latestNo - 4); n--) recentNos.push(n);
+    const recents = (await Promise.all(recentNos.map(n => fetchRound(n).catch(() => null)))).filter(Boolean);
 
-      const prizeRows = [
-        [1, r.firstWinamnt, r.firstPrzwnerCo],
-        [2, r.secondWinamnt, r.secondPrzwnerCo],
-        [3, r.thirdWinamnt, r.thirdPrzwnerCo],
-      ];
+    let html = renderCard(latest);
 
-      return `
-  <div class="result-card">
-    <div class="result-header">
-      <div>
-        <div class="round-no">${d.no}회</div>
-        <div class="round-date">${d.date} 추첨</div>
-      </div>
-      <div class="prize-info">
-        <div class="prize-1st">1등 당첨: 총 ${(r.firstPrzwnerCo || 0).toLocaleString()}명</div>
-        <div class="prize-amt">${fmt(r.firstWinamnt || 0)} <span style="font-size:0.8rem;font-weight:normal;color:#ccc;">(1인당)</span></div>
-      </div>
+    html += `<div style="margin-top:28px;margin-bottom:12px;font-size:0.78rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted)">최근 5회차</div>
+<div class="results-list">`;
+
+    for (const d of recents.slice(1)) {
+      html += `
+  <div class="result-row" onclick="const detail = this.nextElementSibling; detail.style.display = detail.style.display === 'none' ? 'grid' : 'none';" style="cursor:pointer; transition: background 0.2s;" title="클릭해서 당첨 정보 보기">
+    <div class="rno"><small>${d.date}</small><strong>${d.no}회</strong></div>
+    <div class="balls-mini">
+      ${d.nums.map(n => `<div class="ball sm ${ballColor(n)}">${n}</div>`).join('')}
+      <div style="color:var(--muted);font-size:0.75rem;display:flex;align-items:center;margin-left:2px;">+${d.bonus}</div>
     </div>
-    <div class="balls-row">
-      ${d.nums.map(n => makeBall(n, false, highlights.includes(n))).join('')}
-      <span class="plus-sign">+</span>
-      ${makeBonusBall(d.bonus)}
+  </div>
+  <div class="recent-detail" style="display:none; padding: 16px; background: rgba(255,255,255,0.03); border-radius: 12px; margin-bottom: 12px; margin-top:-6px; border: 1px solid var(--border); grid-template-columns: 1fr; gap: 8px;">
+    <div style="display: grid; grid-template-columns: 50px 1fr 1.5fr; gap: 4px; font-size: 0.85rem; align-items: center;">
+      <div style="color:var(--gold); font-weight:700;">1등</div>
+      <div style="color:#eee; text-align:center;">${(d.raw.firstPrzwnerCo || 0).toLocaleString()}명</div>
+      <div style="color:var(--gold); font-weight:700; text-align:right;">${fmt(d.raw.firstWinamnt || 0)}</div>
+      
+      <div style="color:#7ad8ff; font-weight:700;">2등</div>
+      <div style="color:#eee; text-align:center;">${(d.raw.secondPrzwnerCo || 0).toLocaleString()}명</div>
+      <div style="color:#7ad8ff; font-weight:700; text-align:right;">${fmt(d.raw.secondWinamnt || 0)}</div>
+      
+      <div style="color:#ff9090; font-weight:700;">3등</div>
+      <div style="color:#eee; text-align:center;">${(d.raw.thirdPrzwnerCo || 0).toLocaleString()}명</div>
+      <div style="color:#ff9090; font-weight:700; text-align:right;">${fmt(d.raw.thirdWinamnt || 0)}</div>
     </div>
-    ${winTypesHtml}
-    
-    <!-- 1등, 2등, 3등 당첨 정보 테이블 -->
-    <table class="prize-table" style="margin-top:20px;">
-      <thead><tr><th>등수</th><th>당첨자 수</th><th class="money">1인 당첨금</th></tr></thead>
-      <tbody>
-        ${prizeRows.map(([rank, amt, cnt]) => `
-          <tr>
-            <td><span class="rank-badge r${rank}">${rank}등</span></td>
-            <td>${(cnt || 0).toLocaleString()}명</td>
-            <td class="money" style="${rank===1?'color:var(--gold);font-weight:bold;':''}">${fmt(amt || 0)}</td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
   </div>`;
     }
+    html += '</div>';
+    el.innerHTML = html;
+  } catch (e) {
+    el.innerHTML = '<div class="err">데이터를 불러오지 못했습니다.</div>';
+  }
+}
 
     // ── 패널 0: 회차 검색 ────────────────────────────────────────────────
     async function searchRound() {
