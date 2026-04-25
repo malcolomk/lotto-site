@@ -720,8 +720,8 @@
       <button class="tab" onclick="switchTab(1)">🔢 회차로 검색</button>
       <button class="tab" onclick="switchTab(2)">🔍 번호로 검색</button>
       <button class="tab" onclick="switchTab(3)">🤖 AI 추천</button>
-      <button class="tab" onclick="switchTab(4)">📍 근처 명당</button>
-      <button class="tab" onclick="switchTab(5)">🌙 해몽 분석</button>
+      <button class="tab" onclick="switchTab(4)">🌙 해몽 분석</button>
+      <button class="tab" onclick="switchTab(5)">📍 근처 명당</button>
     </div>
 
     <!-- 패널 0: 최신 -->
@@ -776,8 +776,21 @@
       <div id="aiResult" class="results-list"></div>
     </div>
 
-    <!-- 패널 4: 근처 명당 -->
+    <!-- 패널 4: 해몽 분석 -->
     <div class="panel" id="panel4">
+      <div style="text-align:center; padding: 10px 0 30px;">
+        <div style="margin-bottom: 24px; text-align: left; max-width: 100%; margin: 0 auto 24px; background:var(--bg2); padding: 20px; border-radius: 12px; border: 1px solid var(--border);">
+          <label for="dreamInput" class="picker-label" style="display:block; margin-bottom:12px; font-size:1.05rem;">간밤에 어떤 꿈을 꾸셨나요?</label>
+          <textarea id="dreamInput" placeholder="예: 돼지가 집 안으로 들어와서 제 품에 안기는 꿈을 꾸었어요." rows="5" style="width: 100%; padding: 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 1rem; resize: vertical; margin-bottom: 16px; font-family: inherit;"></textarea>
+          <button class="btn-gold" style="width: 100%; font-size: 1.1rem; padding: 16px; border-radius: 8px;"
+            onclick="analyzeDream()">✨ 꿈 풀이 및 복권 운 확인하기</button>
+        </div>
+      </div>
+      <div id="dreamResult" class="results-list"></div>
+    </div>
+
+    <!-- 패널 5: 근처 명당 -->
+    <div class="panel" id="panel5">
       <div style="text-align:center; padding: 10px 0 30px;">
         <div style="margin-bottom: 24px; text-align: left; max-width: 340px; margin: 0 auto 24px; background:var(--bg2); padding: 20px; border-radius: 12px; border: 1px solid var(--border);">
           <div style="margin-bottom: 18px;">
@@ -800,19 +813,6 @@
         <p style="color:var(--muted); font-size:0.85rem; margin-top:16px;">설정한 반경 내에 있는 전국 1등 배출 명당을 거리순으로 찾습니다.<br>(위치 권한 허용 필요)</p>
       </div>
       <div id="storesResult" class="results-list"></div>
-    </div>
-
-    <!-- 패널 5: 해몽 분석 -->
-    <div class="panel" id="panel5">
-      <div style="text-align:center; padding: 10px 0 30px;">
-        <div style="margin-bottom: 24px; text-align: left; max-width: 100%; margin: 0 auto 24px; background:var(--bg2); padding: 20px; border-radius: 12px; border: 1px solid var(--border);">
-          <label for="dreamInput" class="picker-label" style="display:block; margin-bottom:12px; font-size:1.05rem;">간밤에 어떤 꿈을 꾸셨나요?</label>
-          <textarea id="dreamInput" placeholder="예: 돼지가 집 안으로 들어와서 제 품에 안기는 꿈을 꾸었어요." rows="5" style="width: 100%; padding: 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 1rem; resize: vertical; margin-bottom: 16px; font-family: inherit;"></textarea>
-          <button class="btn-gold" style="width: 100%; font-size: 1.1rem; padding: 16px; border-radius: 8px;"
-            onclick="analyzeDream()">✨ 꿈 풀이 및 복권 운 확인하기</button>
-        </div>
-      </div>
-      <div id="dreamResult" class="results-list"></div>
     </div>
   </main>
 
