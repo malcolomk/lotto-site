@@ -721,6 +721,7 @@
       <button class="tab" onclick="switchTab(2)">🔍 번호로 검색</button>
       <button class="tab" onclick="switchTab(3)">🤖 AI 추천</button>
       <button class="tab" onclick="switchTab(4)">📍 근처 명당</button>
+      <button class="tab" onclick="switchTab(5)">🌙 해몽 분석</button>
     </div>
 
     <!-- 패널 0: 최신 -->
@@ -799,6 +800,19 @@
         <p style="color:var(--muted); font-size:0.85rem; margin-top:16px;">설정한 반경 내에 있는 전국 1등 배출 명당을 거리순으로 찾습니다.<br>(위치 권한 허용 필요)</p>
       </div>
       <div id="storesResult" class="results-list"></div>
+    </div>
+
+    <!-- 패널 5: 해몽 분석 -->
+    <div class="panel" id="panel5">
+      <div style="text-align:center; padding: 10px 0 30px;">
+        <div style="margin-bottom: 24px; text-align: left; max-width: 100%; margin: 0 auto 24px; background:var(--bg2); padding: 20px; border-radius: 12px; border: 1px solid var(--border);">
+          <label for="dreamInput" class="picker-label" style="display:block; margin-bottom:12px; font-size:1.05rem;">간밤에 어떤 꿈을 꾸셨나요?</label>
+          <textarea id="dreamInput" placeholder="예: 돼지가 집 안으로 들어와서 제 품에 안기는 꿈을 꾸었어요." rows="5" style="width: 100%; padding: 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 1rem; resize: vertical; margin-bottom: 16px; font-family: inherit;"></textarea>
+          <button class="btn-gold" style="width: 100%; font-size: 1.1rem; padding: 16px; border-radius: 8px;"
+            onclick="analyzeDream()">✨ 꿈 풀이 및 복권 운 확인하기</button>
+        </div>
+      </div>
+      <div id="dreamResult" class="results-list"></div>
     </div>
   </main>
 
@@ -906,18 +920,11 @@
     // ── 결과 카드 렌더 ────────────────────────────────────────────────────
     function renderCard(d, highlights = []) {
       const r = d.raw;
-      const prizeRows = [
-        [1, r.firstWinamnt, r.firstPrzwnerCo],
-        [2, r.secondWinamnt, r.secondPrzwnerCo],
-        [3, r.thirdWinamnt, r.thirdPrzwnerCo],
-        [4, r.fourthWinamnt, r.fourthPrzwnerCo],
-        [5, r.fifthWinamnt, r.fifthPrzwnerCo],
-      ];
 
       let winTypesHtml = '';
       if (d.autoCnt !== null && d.manualCnt !== null) {
         winTypesHtml = `<div style="font-size:0.75rem; color:var(--muted); margin-top:6px; text-align:right;">
-          1등 배출: 총 ${r.firstPrzwnerCo}명 (자동 ${d.autoCnt}명 / 수동 ${d.manualCnt}명${d.semiCnt ? ` / 반자동 ${d.semiCnt}명` : ''})
+          (자동 ${d.autoCnt}명 / 수동 ${d.manualCnt}명${d.semiCnt ? ` / 반자동 ${d.semiCnt}명` : ''})
         </div>`;
       }
 
@@ -929,8 +936,8 @@
         <div class="round-date">${d.date} 추첨</div>
       </div>
       <div class="prize-info">
-        <div class="prize-1st">1등 당첨금 (1인당)</div>
-        <div class="prize-amt">${fmt(r.firstWinamnt)}</div>
+        <div class="prize-1st">1등 당첨: 총 ${(r.firstPrzwnerCo || 0).toLocaleString()}명</div>
+        <div class="prize-amt">${fmt(r.firstWinamnt)} <span style="font-size:0.8rem;font-weight:normal;color:#ccc;">(1인당)</span></div>
       </div>
     </div>
     <div class="balls-row">
@@ -939,18 +946,6 @@
       ${makeBonusBall(d.bonus)}
     </div>
     ${winTypesHtml}
-    <table class="prize-table">
-      <thead><tr><th>등수</th><th>당첨자 수</th><th class="money">1인 당첨금</th></tr></thead>
-      <tbody>
-        ${prizeRows.map(([rank, amt, cnt]) => `
-          <tr>
-            <td><span class="rank-badge r${rank}">${rank}등</span></td>
-            <td>${(cnt || 0).toLocaleString()}명</td>
-            <td class="money">${fmt(amt || 0)}</td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
   </div>`;
     }
 
@@ -1138,12 +1133,16 @@
     <div class="results-list">`;
 
         for (const d of recents.slice(1)) {
-          html += `<div class="result-row">
+          html += `<div class="result-row" onclick="const detail = this.nextElementSibling; detail.style.display = detail.style.display === 'none' ? 'block' : 'none';" style="cursor:pointer; transition: background 0.2s;" title="클릭해서 당첨 정보 보기">
         <div class="rno"><small>${d.date}</small><strong>${d.no}회</strong></div>
         <div class="balls-mini">
           ${d.nums.map(n => `<div class="ball sm ${ballColor(n)}">${n}</div>`).join('')}
           <div style="color:var(--muted);font-size:0.75rem;display:flex;align-items:center;margin-left:2px;">+${d.bonus}</div>
         </div>
+      </div>
+      <div class="recent-detail" style="display:none; padding: 12px 16px; background: rgba(255,255,255,0.03); border-radius: 8px; margin-bottom: 12px; margin-top:-4px; text-align: center; font-size: 0.95rem; border: 1px solid var(--border);">
+        <span style="color:var(--muted);">1등 당첨:</span> <strong style="color:#fff;">${(d.raw.firstPrzwnerCo || 0).toLocaleString()}명</strong> &nbsp;|&nbsp; 
+        <span style="color:var(--muted);">1인당 당첨금:</span> <strong style="color:var(--gold);">${fmt(d.raw.firstWinamnt || 0)}</strong>
       </div>`;
         }
         html += '</div>';
@@ -1311,9 +1310,56 @@
         (err) => {
           el.innerHTML = '<div class="err">위치 정보를 가져오는데 실패했습니다. 권한 거부, 또는 스마트폰의 GPS 기능이 꺼져있을 수 있습니다.</div>';
         },
-        // ★ 수정된 부분 3: 스마트폰 실제 GPS를 사용하도록 정확도(enableHighAccuracy) 옵션을 true로 변경
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
+    }
+
+    // ── 패널 5: 해몽 분석 ───────────────────────────────────────────────
+    async function analyzeDream() {
+      const input = document.getElementById('dreamInput').value.trim();
+      const el = document.getElementById('dreamResult');
+      
+      if (!input) {
+        alert('꿈 내용을 입력해주세요.');
+        return;
+      }
+
+      el.innerHTML = '<div class="loading"><div class="spinner"></div><div class="loading-text">AI 해몽가가 꿈을 분석하고 복권 당첨운을 계산 중입니다... (약 10~15초 소요)</div></div>';
+
+      try {
+        const response = await fetch('/api/dream', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dream: input })
+        });
+
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || '분석 중 오류가 발생했습니다.');
+        }
+
+        const starsCount = Math.min(5, Math.max(1, parseInt(data.stars) || 1));
+        const emptyStars = 5 - starsCount;
+        
+        const starsHtml = '⭐'.repeat(starsCount) + '<span style="opacity:0.3; filter: grayscale(1);">' + '⭐'.repeat(emptyStars) + '</span>';
+
+        el.innerHTML = `
+          <div class="result-card" style="padding: 24px;">
+            <div style="text-align:center; margin-bottom: 24px;">
+              <div style="font-size: 1.1rem; color: var(--muted); margin-bottom: 8px;">AI가 분석한 당신의 복권 운</div>
+              <div style="font-size: 2.5rem; letter-spacing: 4px;">${starsHtml}</div>
+              <div style="font-size: 1.2rem; font-weight: bold; color: var(--gold); margin-top: 8px;">${starsCount} / 5 점</div>
+            </div>
+            <div style="border-top: 1px solid var(--border); padding-top: 20px;">
+              <div style="font-size: 0.9rem; color: var(--gold); margin-bottom: 8px; font-weight: bold;">🌙 해몽 풀이</div>
+              <div style="font-size: 1.05rem; line-height: 1.7; color: var(--text); white-space: pre-wrap;">${data.interpretation}</div>
+            </div>
+          </div>
+        `;
+      } catch (error) {
+        el.innerHTML = `<div class="err">${error.message}</div>`;
+      }
     }
 
     // ── 초기화 ─────────────────────────────────────────────────────────
