@@ -818,20 +818,21 @@
       const encodedUrl = encodeURIComponent(targetUrl);
       let data = null;
 
-      // 1순위: AllOrigins (가장 안정적, 포장지(contents)를 한 번 벗겨내는 로직 추가!)
-      try {
-        const r1 = await fetch(`https://api.allorigins.win/get?url=${encodedUrl}`);
-        if (r1.ok) {
-          const json = await r1.json();
-          const parsed = JSON.parse(json.contents);
-          if (parsed && parsed.returnValue === 'success') data = parsed;
-        }
-      } catch (e) { console.log("AllOrigins 실패"); }
-
-      // 2순위: CodeTabs (대비책 1)
+      // 1순위: CorsProxy (인코딩 절대 안 함 - 원본 주소 그대로)
       if (!data) {
         try {
-          const r2 = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodedUrl}`);
+          const r1 = await fetch(`https://corsproxy.io/?${targetUrl}`);
+          if (r1.ok) {
+            const parsed = await r1.json();
+            if (parsed && parsed.returnValue === 'success') data = parsed;
+          }
+        } catch (e) { console.log("CorsProxy 실패"); }
+      }
+
+      // 2순위: CodeTabs (인코딩 안 함)
+      if (!data) {
+        try {
+          const r2 = await fetch(`https://api.codetabs.com/v1/proxy?quest=${targetUrl}`);
           if (r2.ok) {
             const parsed = await r2.json();
             if (parsed && parsed.returnValue === 'success') data = parsed;
@@ -839,38 +840,47 @@
         } catch (e) { console.log("CodeTabs 실패"); }
       }
 
-      // 3순위: CorsProxy (대비책 2)
+      // 3순위: AllOrigins (얘만 유일하게 인코딩 필수)
       if (!data) {
         try {
-          const r3 = await fetch(`https://corsproxy.io/?${encodedUrl}`);
+          const r3 = await fetch(`https://api.allorigins.win/get?url=${encodedUrl}`);
           if (r3.ok) {
-            const parsed = await r3.json();
+            const json = await r3.json();
+            const parsed = JSON.parse(json.contents);
             if (parsed && parsed.returnValue === 'success') data = parsed;
           }
-        } catch (e) { console.log("CorsProxy 실패"); }
+        } catch (e) { console.log("AllOrigins 실패"); }
       }
 
-      // 3곳 모두 실패하면 null 반환
       if (!data) return null;
 
-      // 1등 당첨 유형 (자동/수동) 크롤링도 동일하게 포장지 벗기기 적용
+      // 1등 당첨 유형 (자동/수동) 크롤링 부분도 똑같이 수정
       let autoCnt = null, manualCnt = null, semiCnt = null;
       const htmlTargetUrl = `https://dhlottery.co.kr/gameResult.do?method=byWin&drwNo=${no}`;
       const encodedHtmlUrl = encodeURIComponent(htmlTargetUrl);
       let htmlText = null;
 
-      try {
-        const rHtml1 = await fetch(`https://api.allorigins.win/get?url=${encodedHtmlUrl}`);
-        if (rHtml1.ok) {
-          const json = await rHtml1.json();
-          htmlText = json.contents;
-        }
-      } catch(e) {}
+      if (!htmlText) {
+        try {
+          const rHtml1 = await fetch(`https://corsproxy.io/?${htmlTargetUrl}`);
+          if (rHtml1.ok) htmlText = await rHtml1.text();
+        } catch(e) {}
+      }
 
       if (!htmlText) {
         try {
-          const rHtml2 = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodedHtmlUrl}`);
+          const rHtml2 = await fetch(`https://api.codetabs.com/v1/proxy?quest=${htmlTargetUrl}`);
           if (rHtml2.ok) htmlText = await rHtml2.text();
+        } catch(e) {}
+      }
+
+      if (!htmlText) {
+        try {
+          const rHtml3 = await fetch(`https://api.allorigins.win/get?url=${encodedHtmlUrl}`);
+          if (rHtml3.ok) {
+            const json = await rHtml3.json();
+            htmlText = json.contents;
+          }
         } catch(e) {}
       }
 
