@@ -31,7 +31,7 @@ export default async function handler(req, res) {
     }
 
     if (nums.length < 7) {
-      return res.status(500).json({ status: 'error', message: '당첨 번호 파싱 실패' });
+      return res.status(500).json({ status: 'error', message: '당첨 번호 파싱 실패 (회차 정보가 없거나 응답 지연)' });
     }
 
     const data = {
@@ -42,9 +42,9 @@ export default async function handler(req, res) {
       bnusNo: nums[6],
     };
 
-    // 2. 당첨 정보 추출 (1인당 당첨금 정밀 타겟팅)
+    // 2. 당첨 정보 추출 (과거/최신 완벽 대응 블록 자르기)
     const extractRankData = (rank) => {
-      // 1등 전용 패턴 (캡처 화면의 요약 정보 우선)
+      // 최신 회차 상단 요약 텍스트 우선 탐색 (1등 전용)
       if (rank === 1) {
         const summaryRegex = /1등\s*당첨금\s*([\d,]+)\s*원\s*\([^)]*?([\d,]+)\s*(?:개|명|게임)/;
         const summaryMatch = html.match(summaryRegex);
@@ -56,19 +56,38 @@ export default async function handler(req, res) {
         }
       }
 
-      // 표(Table) 구조에서 해당 등수의 행(Row)을 찾아 1인당 당첨금 추출
-      // 보통 구조: 등수 -> 총당첨금 -> 당첨자수 -> 1인당당첨금 순서임
-      const rankPattern = new RegExp(`${rank}등[\\s\\S]{0,300}?(?:명|개|게임)[\\s\\S]{0,100}?([\\d,]{5,})\\s*원`);
-      const rankMatch = html.match(rankPattern);
+      // 표(Table) 구역을 등수 단위로 통째로 잘라서 분석
+      const startStr = `${rank}등`;
+      const endStr = `${rank + 1}등`;
       
-      // 인원수 추출 (금액과 혼동되지 않도록 명/개/게임 앞의 작은 숫자 타겟)
-      const countPattern = new RegExp(`${rank}등[\\s\\S]{0,150}?([\\d,]{1,7})\\s*(?:명|개|게임)`);
-      const countMatch = html.match(countPattern);
+      let startIdx = html.indexOf(startStr);
+      if (startIdx === -1) return { amount: 0, count: 0 };
+      
+      let endIdx = html.indexOf(endStr, startIdx);
+      if (endIdx === -1) endIdx = startIdx + 400; // 마지막 등수거나 다음 등수가 없으면 400자까지만
+      
+      const chunk = html.substring(startIdx, endIdx);
+      
+      // A. 당첨자 수 추출 (명, 개, 게임 앞에 있는 숫자)
+      const countMatch = chunk.match(/([\d,]+)\s*(?:명|개|게임)/);
+      const count = countMatch ? parseInt(countMatch[1].replace(/,/g, ''), 10) : 0;
 
-      return {
-        amount: rankMatch ? parseInt(rankMatch[1].replace(/,/g, ''), 10) : 0,
-        count: countMatch ? parseInt(countMatch[1].replace(/,/g, ''), 10) : 0
-      };
+      // B. 당첨금 추출 (해당 구간에 있는 모든 '원' 단위 금액 배열로 추출)
+      const amtRegex = /([\d,]{4,})\s*원/g;
+      const amtMatches = [];
+      let match;
+      while ((match = amtRegex.exec(chunk)) !== null) {
+        amtMatches.push(parseInt(match[1].replace(/,/g, ''), 10));
+      }
+
+      // [핵심 로직] 네이버 표 구조상 '총 당첨금'이 먼저, '1인당 당첨금'이 나중에 나옵니다.
+      // 따라서 찾아낸 금액들 중 무조건 '마지막 값'을 선택하면 1인당 당첨금을 정확히 가져올 수 있습니다.
+      let amount = 0;
+      if (amtMatches.length > 0) {
+        amount = amtMatches[amtMatches.length - 1]; 
+      }
+
+      return { amount, count };
     };
 
     const first = extractRankData(1);
