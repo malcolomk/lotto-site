@@ -814,55 +814,70 @@
     }
 
     async function fetchRound(no) {
-      // 3개의 우회 프록시 서버를 준비 (하나가 막히면 다음 것으로 시도)
-      const proxies = [
-        `https://corsproxy.io/?url=`,
-        `https://api.allorigins.win/raw?url=`,
-        `https://api.codetabs.com/v1/proxy?quest=`
-      ];
-      
-      const targetUrl = encodeURIComponent(`https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=${no}`);
-      
+      const targetUrl = `https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=${no}`;
+      const encodedUrl = encodeURIComponent(targetUrl);
       let data = null;
 
-      // 3개의 프록시를 순서대로 돌면서 데이터 가져오기 시도
-      for (const proxy of proxies) {
-        try {
-          const controller = new AbortController();
-          const id = setTimeout(() => controller.abort(), 6000); // 6초 기다림
-          
-          const response = await fetch(proxy + targetUrl, { signal: controller.signal });
-          clearTimeout(id);
-
-          if (response.ok) {
-            data = await response.json();
-            if (data && data.returnValue === 'success') {
-              break; // 성공하면 반복문 탈출!
-            }
-          }
-        } catch (e) {
-          console.log("프록시 에러, 다음 프록시 시도 중...");
+      // 1순위: AllOrigins (가장 안정적, 포장지(contents)를 한 번 벗겨내는 로직 추가!)
+      try {
+        const r1 = await fetch(`https://api.allorigins.win/get?url=${encodedUrl}`);
+        if (r1.ok) {
+          const json = await r1.json();
+          const parsed = JSON.parse(json.contents);
+          if (parsed && parsed.returnValue === 'success') data = parsed;
         }
+      } catch (e) { console.log("AllOrigins 실패"); }
+
+      // 2순위: CodeTabs (대비책 1)
+      if (!data) {
+        try {
+          const r2 = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodedUrl}`);
+          if (r2.ok) {
+            const parsed = await r2.json();
+            if (parsed && parsed.returnValue === 'success') data = parsed;
+          }
+        } catch (e) { console.log("CodeTabs 실패"); }
       }
 
-      // 3개 프록시가 다 막혔을 경우
+      // 3순위: CorsProxy (대비책 2)
+      if (!data) {
+        try {
+          const r3 = await fetch(`https://corsproxy.io/?${encodedUrl}`);
+          if (r3.ok) {
+            const parsed = await r3.json();
+            if (parsed && parsed.returnValue === 'success') data = parsed;
+          }
+        } catch (e) { console.log("CorsProxy 실패"); }
+      }
+
+      // 3곳 모두 실패하면 null 반환
       if (!data) return null;
 
-      // 당첨자 수 (자동/수동) 크롤링도 동일하게 프록시 적용
+      // 1등 당첨 유형 (자동/수동) 크롤링도 동일하게 포장지 벗기기 적용
       let autoCnt = null, manualCnt = null, semiCnt = null;
-      const htmlTargetUrl = encodeURIComponent(`https://dhlottery.co.kr/gameResult.do?method=byWin&drwNo=${no}`);
-      
-      for (const proxy of proxies) {
+      const htmlTargetUrl = `https://dhlottery.co.kr/gameResult.do?method=byWin&drwNo=${no}`;
+      const encodedHtmlUrl = encodeURIComponent(htmlTargetUrl);
+      let htmlText = null;
+
+      try {
+        const rHtml1 = await fetch(`https://api.allorigins.win/get?url=${encodedHtmlUrl}`);
+        if (rHtml1.ok) {
+          const json = await rHtml1.json();
+          htmlText = json.contents;
+        }
+      } catch(e) {}
+
+      if (!htmlText) {
         try {
-          const response2 = await fetch(proxy + htmlTargetUrl);
-          if (response2.ok) {
-            const htmlText = await response2.text();
-            autoCnt = (htmlText.match(/<td>\s*자동\s*<\/td>/g) || []).length;
-            manualCnt = (htmlText.match(/<td>\s*수동\s*<\/td>/g) || []).length;
-            semiCnt = (htmlText.match(/<td>\s*반자동\s*<\/td>/g) || []).length;
-            break; 
-          }
+          const rHtml2 = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodedHtmlUrl}`);
+          if (rHtml2.ok) htmlText = await rHtml2.text();
         } catch(e) {}
+      }
+
+      if (htmlText) {
+        autoCnt = (htmlText.match(/<td>\s*자동\s*<\/td>/g) || []).length;
+        manualCnt = (htmlText.match(/<td>\s*수동\s*<\/td>/g) || []).length;
+        semiCnt = (htmlText.match(/<td>\s*반자동\s*<\/td>/g) || []).length;
       }
 
       return {
