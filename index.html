@@ -810,36 +810,15 @@
 
     <!-- 패널 5: 근처 명당 -->
     <div class="panel" id="panel5">
-      <div style="text-align:center; padding: 10px 0 30px;">
-        <div
-          style="margin-bottom: 24px; text-align: left; max-width: 340px; margin: 0 auto 24px; background:var(--bg2); padding: 20px; border-radius: 12px; border: 1px solid var(--border);">
-          <div style="margin-bottom: 18px;">
-            <div style="display:flex; justify-content:space-between; margin-bottom: 10px;">
-              <label for="radiusSlider" class="picker-label" style="margin:0;">검색 반경</label>
-              <span id="radiusValue"
-                style="color:var(--gold); font-family:'Space Mono', monospace; font-size:0.95rem; font-weight:700;">10km</span>
-            </div>
-            <input type="range" id="radiusSlider" min="3" max="30" value="10" step="1"
-              style="width:100%; cursor:pointer; accent-color:var(--gold);"
-              oninput="document.getElementById('radiusValue').innerText = this.value + 'km'">
-          </div>
-          <div>
-            <div style="display:flex; justify-content:space-between; margin-bottom: 10px;">
-              <label for="minWinsSlider" class="picker-label" style="margin:0;">명당 기준 (최소 1등 배출)</label>
-              <span id="minWinsValue"
-                style="color:var(--gold); font-family:'Space Mono', monospace; font-size:0.95rem; font-weight:700;">3번</span>
-            </div>
-            <input type="range" id="minWinsSlider" min="3" max="20" value="3" step="1"
-              style="width:100%; cursor:pointer; accent-color:var(--gold);"
-              oninput="document.getElementById('minWinsValue').innerText = this.value + '번'">
-          </div>
-        </div>
-        <button class="btn-gold" style="font-size: 1.1rem; padding: 16px 36px; border-radius: 12px;"
-          onclick="findNearbyStores()">📍 내 위치로 근처 명당 찾기</button>
-        <p style="color:var(--muted); font-size:0.85rem; margin-top:16px;">설정한 반경 내에 있는 전국 1등 배출 명당을 거리순으로 찾습니다.<br>(위치
-          권한 허용 필요)</p>
+      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 350px; text-align: center; background: var(--bg2); border-radius: 16px; border: 1px solid var(--border); padding: 40px; margin: 10px 0;">
+        <div style="font-size: 3.5rem; margin-bottom: 24px; animation: fadeIn 1s ease;">📍</div>
+        <h2 style="font-family: 'Black Han Sans', sans-serif; font-size: 1.8rem; color: var(--gold); margin-bottom: 16px; letter-spacing: 0.05em;">서비스 준비 중</h2>
+        <p style="color: var(--muted); font-size: 1rem; line-height: 1.7; font-weight: 300;">
+          더 정확하고 풍성한 명당 정보를 제공하기 위해<br>
+          <span style="color: var(--text);">현재 서비스 고도화 작업이 진행 중입니다.</span><br>
+          빠른 시일 내에 더 좋은 서비스로 찾아뵙겠습니다.
+        </p>
       </div>
-      <div id="storesResult" class="results-list"></div>
     </div>
   </main>
 
@@ -1226,7 +1205,7 @@
       }, 1200);
     }
 
-    // ── 패널 4: 내 근처 명당 ─────────────────────────────────────────────
+    // ── 패널 5: 근처 명당 ─────────────────────────────────────────────
     const topStores = [
       { name: "스파", address: "서울 노원구 동일로 1493", lat: 37.6552, lng: 127.0614, wins: 55, latestDate: "2024-03-02" },
       { name: "부일카서비스", address: "부산 동구 자성로133번길 35", lat: 35.1388, lng: 129.0654, wins: 48, latestDate: "2024-02-17" },
@@ -1326,7 +1305,7 @@
       );
     }
 
-    // ── 패널 5: 해몽 분석 ───────────────────────────────────────────────
+    // ── 패널 4: 해몽 분석 ───────────────────────────────────────────────
     async function analyzeDream() {
       const input = document.getElementById('dreamInput').value.trim();
       const el = document.getElementById('dreamResult');
