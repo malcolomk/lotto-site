@@ -843,53 +843,24 @@
     }
 
     async function fetchRound(no) {
-      const GAS_URL = "https://script.google.com/macros/s/AKfycbwZbMLa-lnXLvOIFr12vi9cLFvIGReK_rGBTo17dhthaul4XALnYsUkauGUOs-G4a-DrA/exec";
-      let data = null;
-
-      try {
-        const r1 = await fetch(`${GAS_URL}?drwNo=${no}`);
-        const d = await r1.json();
-        
-        if (d && d.returnValue === 'success') {
-          let autoCnt = null, manualCnt = null, semiCnt = null;
-          try {
-            const r2 = await fetch(`${GAS_URL}?type=html&drwNo=${no}`);
-            if (r2.ok) {
-              const htmlText = await r2.text();
-              autoCnt = (htmlText.match(/<td>\s*자동\s*<\/td>/g) || []).length;
-              manualCnt = (htmlText.match(/<td>\s*수동\s*<\/td>/g) || []).length;
-              semiCnt = (htmlText.match(/<td>\s*반자동\s*<\/td>/g) || []).length;
-            }
-          } catch(e) {}
-
-          return {
-            no: d.drwNo, date: d.drwNoDate,
-            nums: [d.drwtNo1, d.drwtNo2, d.drwtNo3, d.drwtNo4, d.drwtNo5, d.drwtNo6].sort((a, b) => a - b),
-            bonus: d.bnusNo,
-            firstWinCnt: d.firstPrzwnerCo, firstWinAmt: d.firstWinamnt,
-            firstAccumAmt: d.firstAccumamnt,
-            autoCnt, manualCnt, semiCnt,
-            raw: d
-          };
-        }
-      } catch (e) { console.log('GAS 실패'); }
-
-      // 폴백: 네이버 파싱
       try {
         const r = await fetch(`/api/naver?drwNo=${no}`);
         const d = await r.json();
+        
         if (d && d.returnValue === 'success') {
           return {
             no: d.drwNo, date: d.drwNoDate,
             nums: [d.drwtNo1, d.drwtNo2, d.drwtNo3, d.drwtNo4, d.drwtNo5, d.drwtNo6].sort((a, b) => a - b),
             bonus: d.bnusNo,
             firstWinCnt: d.firstPrzwnerCo, firstWinAmt: d.firstWinamnt,
-            firstAccumAmt: 0,
+            firstAccumAmt: d.firstAccumamnt || 0,
             autoCnt: null, manualCnt: null, semiCnt: null,
             raw: d
           };
         }
-      } catch (err) {}
+      } catch (e) {
+        console.log('Naver API 실패', e);
+      }
       return null;
     }
 
