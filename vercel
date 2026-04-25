@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/lotto",
+      "destination": "https://www.dhlottery.co.kr/common.do"
+    },
+    {
+      "source": "/api/lotto-html",
+      "destination": "https://dhlottery.co.kr/gameResult.do"
+    }
+  ]
+}
