@@ -1,7 +1,6 @@
 export default async function handler(req, res) {
   const { drwNo } = req.query;
   
-  // 회차가 없으면 현재 시간을 기준으로 최신 회차 계산
   let round = drwNo;
   if (!round) {
     const firstDate = new Date('2002-12-07T20:45:00+09:00').getTime();
@@ -19,98 +18,76 @@ export default async function handler(req, res) {
       }
     });
     
-    if (!response.ok) {
-      return res.status(500).json({ status: 'error', message: '네이버 접속 실패' });
-    }
+    if (!response.ok) return res.status(500).json({ status: 'error', message: '네이버 접속 실패' });
 
     const html = await response.text();
     
-    // 1. 당첨 번호 파싱
-    const regex = /<span class="[^"]*ball[^"]*">(\d+)<\/span>/g;
-    let match;
+    // 1. 당첨 번호 추출
+    const ballRegex = /<span class="[^"]*ball[^"]*">(\d+)<\/span>/g;
     const nums = [];
-    
-    while ((match = regex.exec(html)) !== null) {
-      nums.push(parseInt(match[1], 10));
+    let ballMatch;
+    while ((ballMatch = ballRegex.exec(html)) !== null) {
+      nums.push(parseInt(ballMatch[1], 10));
     }
 
-    if (nums.length >= 7) {
-      const data = {
-        returnValue: 'success',
-        drwNo: parseInt(round, 10),
-        drwtNo1: nums[0],
-        drwtNo2: nums[1],
-        drwtNo3: nums[2],
-        drwtNo4: nums[3],
-        drwtNo5: nums[4],
-        drwtNo6: nums[5],
-        bnusNo: nums[6],
-      };
-      
-      // 2. 당첨금 및 당첨자수 파싱 함수 (네이버 구조 변경 대응)
-      const extractRankData = (rank) => {
-        // [우선 탐색] 캡처 화면과 같은 최신 패턴: "1등 당첨금 1,830,801,165원 (당첨 복권수 16개)"
-        const directRegex = new RegExp(`${rank}등\\s*당첨금\\s*([\\d,]+)\\s*원\\s*\\([^)]*?([\\d,]+)\\s*(?:개|명|게임)\\)`);
-        const directMatch = html.match(directRegex);
-        
-        if (directMatch) {
-            return {
-                amount: parseInt(directMatch[1].replace(/,/g, ''), 10),
-                count: parseInt(directMatch[2].replace(/,/g, ''), 10)
-            };
+    if (nums.length < 7) {
+      return res.status(500).json({ status: 'error', message: '당첨 번호 파싱 실패' });
+    }
+
+    const data = {
+      returnValue: 'success',
+      drwNo: parseInt(round, 10),
+      drwtNo1: nums[0], drwtNo2: nums[1], drwtNo3: nums[2],
+      drwtNo4: nums[3], drwtNo5: nums[4], drwtNo6: nums[5],
+      bnusNo: nums[6],
+    };
+
+    // 2. 당첨 정보 추출 (1인당 당첨금 정밀 타겟팅)
+    const extractRankData = (rank) => {
+      // 1등 전용 패턴 (캡처 화면의 요약 정보 우선)
+      if (rank === 1) {
+        const summaryRegex = /1등\s*당첨금\s*([\d,]+)\s*원\s*\([^)]*?([\d,]+)\s*(?:개|명|게임)/;
+        const summaryMatch = html.match(summaryRegex);
+        if (summaryMatch) {
+          return {
+            amount: parseInt(summaryMatch[1].replace(/,/g, ''), 10),
+            count: parseInt(summaryMatch[2].replace(/,/g, ''), 10)
+          };
         }
-
-        // [대비책 탐색] 위 패턴이 없을 경우 해당 등수 주변 텍스트를 통째로 잘라서 탐색
-        const currentRankStr = `${rank}등`;
-        const startIndex = html.indexOf(currentRankStr);
-        if (startIndex === -1) return { amount: 0, count: 0 };
-        
-        let endIndex = html.indexOf(`${rank + 1}등`, startIndex);
-        if (endIndex === -1) endIndex = startIndex + 400; // 다음 등수가 안 보이면 400자까지만 탐색
-        
-        const chunk = html.substring(startIndex, endIndex);
-        
-        // '개', '명', '게임' 단위를 모두 허용하여 숫자 추출
-        const cntRegex = /([\d,]{1,6})\s*(?:명|게임|개)/;
-        const cntMatch = chunk.match(cntRegex);
-        let count = cntMatch ? parseInt(cntMatch[1].replace(/,/g, ''), 10) : 0;
-
-        // '원' 단위를 기준으로 금액 추출
-        const amtRegex = /([\d,]{5,})\s*원/;
-        const amtMatch = chunk.match(amtRegex);
-        let amount = amtMatch ? parseInt(amtMatch[1].replace(/,/g, ''), 10) : 0;
-
-        return { amount, count };
-      };
-
-      const first = extractRankData(1);
-      const second = extractRankData(2);
-      const third = extractRankData(3);
-      
-      data.firstWinamnt = first.amount;
-      data.firstPrzwnerCo = first.count;
-      data.secondWinamnt = second.amount;
-      data.secondPrzwnerCo = second.count;
-      data.thirdWinamnt = third.amount;
-      data.thirdPrzwnerCo = third.count;
-      data.firstAccumamnt = 0;
-      
-      // 3. 추첨일 파싱
-      const dateRegex = /([2][0][0-2][\d])[년.\-\s]+([0-1]?[\d])[월.\-\s]+([0-3]?[\d])[일.\-\s]+(?:추첨)?/;
-      const dateMatch = html.match(dateRegex);
-      if (dateMatch) {
-         const y = dateMatch[1];
-         const m = dateMatch[2].trim().padStart(2, '0');
-         const d = dateMatch[3].trim().padStart(2, '0');
-         data.drwNoDate = `${y}-${m}-${d}`;
-      } else {
-         data.drwNoDate = "날짜 정보 없음";
       }
 
-      return res.status(200).json(data);
-    } else {
-      return res.status(500).json({ status: 'error', message: '파싱 실패 (당첨 번호를 찾을 수 없습니다)' });
-    }
+      // 표(Table) 구조에서 해당 등수의 행(Row)을 찾아 1인당 당첨금 추출
+      // 보통 구조: 등수 -> 총당첨금 -> 당첨자수 -> 1인당당첨금 순서임
+      const rankPattern = new RegExp(`${rank}등[\\s\\S]{0,300}?(?:명|개|게임)[\\s\\S]{0,100}?([\\d,]{5,})\\s*원`);
+      const rankMatch = html.match(rankPattern);
+      
+      // 인원수 추출 (금액과 혼동되지 않도록 명/개/게임 앞의 작은 숫자 타겟)
+      const countPattern = new RegExp(`${rank}등[\\s\\S]{0,150}?([\\d,]{1,7})\\s*(?:명|개|게임)`);
+      const countMatch = html.match(countPattern);
+
+      return {
+        amount: rankMatch ? parseInt(rankMatch[1].replace(/,/g, ''), 10) : 0,
+        count: countMatch ? parseInt(countMatch[1].replace(/,/g, ''), 10) : 0
+      };
+    };
+
+    const first = extractRankData(1);
+    const second = extractRankData(2);
+    const third = extractRankData(3);
+    
+    data.firstWinamnt = first.amount;
+    data.firstPrzwnerCo = first.count;
+    data.secondWinamnt = second.amount;
+    data.secondPrzwnerCo = second.count;
+    data.thirdWinamnt = third.amount;
+    data.thirdPrzwnerCo = third.count;
+    
+    // 3. 날짜 추출
+    const dateRegex = /([2][0][0-2][\d])[년.\-\s]+([0-1]?[\d])[월.\-\s]+([0-3]?[\d])[일.\-\s]+(?:추첨)?/;
+    const dateMatch = html.match(dateRegex);
+    data.drwNoDate = dateMatch ? `${dateMatch[1]}-${dateMatch[2].padStart(2, '0')}-${dateMatch[3].padStart(2, '0')}` : "날짜 정보 없음";
+
+    return res.status(200).json(data);
   } catch (error) {
     return res.status(500).json({ status: 'error', message: error.message });
   }
