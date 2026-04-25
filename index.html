@@ -1132,19 +1132,7 @@
         for (let n = latestNo; n >= Math.max(1, latestNo - 4); n--) recentNos.push(n);
         const recents = (await Promise.all(recentNos.map(n => fetchRound(n).catch(() => null)))).filter(Boolean);
 
-        let html = `<div class="latest-banner">
-      <div>
-        <div class="lb-label">최신 회차</div>
-        <div class="lb-round">${latest.no}회 · ${latest.date}</div>
-      </div>
-      <div class="balls-row" style="flex:1">
-        ${latest.nums.map(n => makeBall(n)).join('')}
-        <span class="plus-sign">+</span>
-        ${makeBonusBall(latest.bonus)}
-      </div>
-    </div>`;
-
-        html += renderCard(latest);
+        let html = renderCard(latest);
 
         html += `<div style="margin-top:28px;margin-bottom:12px;font-size:0.78rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted)">최근 5회차</div>
     <div class="results-list">`;
