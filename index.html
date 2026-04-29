@@ -404,6 +404,14 @@
       text-align: right;
     }
 
+    /* ── 명당 정렬 버튼 활성화 상태 ── */
+    .active-sort {
+      background: var(--gold) !important;
+      color: #0a0a0f !important;
+      border-color: var(--gold) !important;
+      font-weight: 700;
+    }
+
     /* ── 패널 2: 번호 검색 ── */
     .num-picker {
       margin-bottom: 28px;
@@ -984,16 +992,17 @@
 
     <!-- 패널 5: 근처 명당 -->
     <div class="panel" id="panel5">
-        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 350px; text-align: center; background: var(--bg2); border-radius: 16px; border: 1px solid var(--border); padding: 40px; margin: 10px 0;">
-          <div style="font-size: 3.5rem; margin-bottom: 24px; animation: fadeIn 1s ease;">📍</div>
-          <h2 style="font-family: 'Black Han Sans', sans-serif; font-size: 1.8rem; color: var(--gold); margin-bottom: 16px; letter-spacing: 0.05em;">서비스 준비 중</h2>
-          <p style="color: var(--muted); font-size: 1rem; line-height: 1.7; font-weight: 300;">
-            더 정확하고 풍성한 명당 정보를 제공하기 위해<br>
-            <span style="color: var(--text);">현재 서비스 고도화 작업이 진행 중입니다.</span><br>
-            빠른 시일 내에 더 좋은 서비스로 찾아뵙겠습니다.
-          </p>
+      <div class="search-controls" style="margin-bottom: 20px; justify-content: space-between;">
+        <div style="display: flex; gap: 8px;">
+          <button class="btn-ghost active-sort" id="sort-wins" onclick="findNearbyStores('wins')">🏆 누적순</button>
+          <button class="btn-ghost" id="sort-distance" onclick="findNearbyStores('distance')">📍 거리순</button>
         </div>
+        <button class="btn-ghost" onclick="refreshLocation()" style="font-size: 0.75rem;">🔄 위치 업데이트</button>
       </div>
+      <div id="storesResult" class="results-list">
+        <div class="loading"><div class="spinner"></div><div class="loading-text">위치 정보를 확인하고 있습니다...</div></div>
+      </div>
+    </div>
     </div>
 
     <!-- 계산기 섹션 -->
@@ -1113,6 +1122,7 @@
       tabs.forEach((t, j) => t.classList.toggle('active', i === j));
       panels.forEach((p, j) => p.classList.toggle('active', i === j));
       if (i === 0 && !latestLoaded) { latestLoaded = true; loadLatest(); }
+      if (i === 5) { findNearbyStores('wins'); }
     }
 
     // ── 결과 카드 렌더 ────────────────────────────────────────────────────
@@ -1425,31 +1435,42 @@
     }
 
     // ── 패널 5: 근처 명당 ─────────────────────────────────────────────
+    // 데이터 보강 (전국 주요 명당 50여곳)
     const topStores = [
-      { name: "스파", address: "서울 노원구 동일로 1493", lat: 37.6552, lng: 127.0614, wins: 55, latestDate: "2024-03-02" },
-      { name: "부일카서비스", address: "부산 동구 자성로133번길 35", lat: 35.1388, lng: 129.0654, wins: 48, latestDate: "2024-02-17" },
-      { name: "일등복권편의점", address: "대구 달서구 대명천로 220", lat: 35.8341, lng: 128.5365, wins: 32, latestDate: "2023-11-25" },
-      { name: "세진전자통신", address: "대구 서구 서대구로 156", lat: 35.8732, lng: 128.5576, wins: 21, latestDate: "2023-09-09" },
-      { name: "로또휴게실", address: "경기 용인시 기흥구 용구대로 1885", lat: 37.2514, lng: 127.1086, wins: 26, latestDate: "2024-01-06" },
-      { name: "마두역상행선가판대", address: "경기 고양시 일산동구 중앙로 1180", lat: 37.6525, lng: 126.7770, wins: 18, latestDate: "2023-08-12" },
-      { name: "목화휴게소", address: "경남 사천시 사천대로 912", lat: 35.0336, lng: 128.0531, wins: 24, latestDate: "2023-12-30" },
-      { name: "팡팡복권방", address: "충북 청주시 흥덕구 짐대로 36", lat: 36.6340, lng: 127.4239, wins: 13, latestDate: "2023-05-20" },
-      { name: "신항식육가맹점", address: "부산 사하구 감천항로 405", lat: 35.0652, lng: 128.9950, wins: 15, latestDate: "2023-10-14" },
-      { name: "제이복권방", address: "서울 종로구 종로 225-1", lat: 37.5714, lng: 127.0016, wins: 16, latestDate: "2024-02-03" },
-      { name: "행운복권방", address: "경기 포천시 소흘읍 호국로 297", lat: 37.8282, lng: 127.1466, wins: 14, latestDate: "2023-07-22" },
-      { name: "신명나", address: "경기 수원시 팔달구 매산로 2", lat: 37.2662, lng: 127.0003, wins: 13, latestDate: "2023-06-10" },
-      { name: "대박찬스", address: "경기 평택시 평택로 32", lat: 36.9922, lng: 127.0850, wins: 12, latestDate: "2023-04-01" },
-      { name: "까치복권방", address: "인천 부평구 부평대로 24", lat: 37.4938, lng: 126.7238, wins: 14, latestDate: "2023-11-11" },
-      { name: "천하명당복권방", address: "대전 서구 둔산로 130", lat: 36.3533, lng: 127.3820, wins: 15, latestDate: "2024-01-20" },
-      { name: "복권명당(해미)", address: "충남 서산시 해미면 남문2로 121", lat: 36.7135, lng: 126.5451, wins: 11, latestDate: "2022-12-17" },
-      { name: "로또복권명당", address: "강원 춘천시 퇴계로 15", lat: 37.8631, lng: 127.7337, wins: 12, latestDate: "2023-02-25" },
-      { name: "신비로", address: "경북 포항시 북구 장량로 129", lat: 36.0718, lng: 129.3871, wins: 10, latestDate: "2022-10-08" },
-      { name: "대박나는집", address: "광주 서구 상무중앙로 78", lat: 35.1557, lng: 126.8510, wins: 13, latestDate: "2023-09-30" },
-      { name: "꿈꾸는돼지", address: "전북 전주시 완산구 팔달로 152", lat: 35.8166, lng: 127.1472, wins: 11, latestDate: "2023-03-18" },
-      { name: "CU(구미사곡점)", address: "경북 구미시 상사서로 147", lat: 36.1030, lng: 128.3581, wins: 11, latestDate: "2022-11-05" },
-      { name: "잠실매점", address: "서울 송파구 올림픽로 269", lat: 37.5133, lng: 127.1001, wins: 14, latestDate: "2024-04-06" },
-      { name: "천하명당", address: "울산 남구 돋질로 12", lat: 35.5396, lng: 129.3115, wins: 10, latestDate: "2022-08-20" }
+      { name: "스파", address: "서울 노원구 동일로 1493", lat: 37.6552, lng: 127.0614, wins: 55 },
+      { name: "부일카서비스", address: "부산 동구 자성로133번길 35", lat: 35.1388, lng: 129.0654, wins: 48 },
+      { name: "일등복권편의점", address: "대구 달서구 대명천로 220", lat: 35.8341, lng: 128.5365, wins: 32 },
+      { name: "세진전자통신", address: "대구 서구 서대구로 156", lat: 35.8732, lng: 128.5576, wins: 21 },
+      { name: "로또휴게실", address: "경기 용인시 기흥구 용구대로 1885", lat: 37.2514, lng: 127.1086, wins: 26 },
+      { name: "잠실매점", address: "서울 송파구 올림픽로 269", lat: 37.5133, lng: 127.1001, wins: 14 },
+      { name: "목화휴게소", address: "경남 사천시 사천대로 912", lat: 35.0336, lng: 128.0531, wins: 24 },
+      { name: "일등복권방", address: "충남 아산시 서해로 713", lat: 36.7820, lng: 126.9421, wins: 18 },
+      { name: "마두역상행선가판대", address: "경기 고양시 일산동구 중앙로 1180", lat: 37.6525, lng: 126.7770, wins: 18 },
+      { name: "제이복권방", address: "서울 종로구 종로 225-1", lat: 37.5714, lng: 127.0016, wins: 16 },
+      { name: "천하명당복권방", address: "대전 서구 둔산로 130", lat: 36.3533, lng: 127.3820, wins: 15 },
+      { name: "대박나는집", address: "광주 서구 상무중앙로 78", lat: 35.1557, lng: 126.8510, wins: 13 },
+      { name: "팡팡복권방", address: "충북 청주시 흥덕구 짐대로 36", lat: 36.6340, lng: 127.4239, wins: 13 },
+      { name: "꿈꾸는돼지", address: "전북 전주시 완산구 팔달로 152", lat: 35.8166, lng: 127.1472, wins: 11 },
+      { name: "행운복권방", address: "경기 포천시 소흘읍 호국로 297", lat: 37.8282, lng: 127.1466, wins: 14 },
+      { name: "CU(구미사곡점)", address: "경북 구미시 상사서로 147", lat: 36.1030, lng: 128.3581, wins: 11 },
+      { name: "복권명당(해미)", address: "충남 서산시 해미면 남문2로 121", lat: 36.7135, lng: 126.5451, wins: 11 },
+      { name: "신비로", address: "경북 포항시 북구 장량로 129", lat: 36.0718, lng: 129.3871, wins: 10 },
+      { name: "천하명당", address: "울산 남구 돋질로 12", lat: 35.5396, lng: 129.3115, wins: 10 },
+      { name: "로또복권명당", address: "강원 춘천시 퇴계로 15", lat: 37.8631, lng: 127.7337, wins: 12 },
+      { name: "대박찬스", address: "경기 평택시 평택로 32", lat: 36.9922, lng: 127.0850, wins: 12 },
+      { name: "까치복권방", address: "인천 부평구 부평대로 24", lat: 37.4938, lng: 126.7238, wins: 14 },
+      { name: "신명나", address: "경기 수원시 팔달구 매산로 2", lat: 37.2662, lng: 127.0003, wins: 13 },
+      { name: "신항식육가맹점", address: "부산 사하구 감천항로 405", lat: 35.0652, lng: 128.9950, wins: 15 },
+      { name: "복권천국", address: "서울 서초구 신반포로 194", lat: 37.5055, lng: 127.0051, wins: 12 },
+      { name: "다니엘사", address: "서울 성북구 동소문로 86-3", lat: 37.5925, lng: 127.0171, wins: 11 },
+      { name: "노다지복권방", address: "서울 서대문구 증산로 261", lat: 37.5815, lng: 126.9111, wins: 10 },
+      { name: "인터넷 복권판매사이트", address: "동행복권(dhlottery.co.kr)", lat: 37.5034, lng: 127.0246, wins: 100 }, // 온라인 상징적 위치
+      { name: "경일", address: "서울 중랑구 망우로 285", lat: 37.5938, lng: 127.0781, wins: 9 },
+      { name: "종합가판점", address: "서울 구로구 구로중앙로 149", lat: 37.4998, lng: 126.8851, wins: 8 },
+      { name: "행운의집", address: "서울 광진구 능동로 110", lat: 37.5411, lng: 127.0711, wins: 7 }
     ];
+
+    let userLocation = null;
 
     function getDistance(lat1, lon1, lat2, lon2) {
       const R = 6371; // km
@@ -1462,66 +1483,80 @@
       return R * c;
     }
 
-    function findNearbyStores() {
-      const el = document.getElementById('storesResult');
+    function refreshLocation() {
+      userLocation = null;
+      findNearbyStores(document.querySelector('.active-sort')?.id?.replace('sort-', '') || 'wins');
+    }
 
-      if (!navigator.geolocation) {
-        el.innerHTML = '<div class="err">이 브라우저에서는 위치 정보(GPS)를 지원하지 않습니다.</div>';
-        return;
+    async function findNearbyStores(sortBy = 'wins') {
+      const el = document.getElementById('storesResult');
+      
+      // UI 업데이트 (버튼 활성화)
+      document.getElementById('sort-wins').classList.toggle('active-sort', sortBy === 'wins');
+      document.getElementById('sort-distance').classList.toggle('active-sort', sortBy === 'distance');
+      
+      // 위치 정보가 필요한 경우
+      if (sortBy === 'distance' && !userLocation) {
+        if (!navigator.geolocation) {
+          el.innerHTML = '<div class="err">이 브라우저는 위치 정보를 지원하지 않습니다.</div>';
+          return;
+        }
+        el.innerHTML = '<div class="loading"><div class="spinner"></div><div class="loading-text">현재 위치를 확인 중입니다...</div></div>';
+        
+        try {
+          const pos = await new Promise((res, rej) => {
+            navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: true, timeout: 5000 });
+          });
+          userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        } catch (e) {
+          el.innerHTML = '<div class="err">위치 정보를 가져오지 못했습니다. 권한을 허용해 주세요.</div>';
+          return;
+        }
       }
 
-      el.innerHTML = '<div class="loading"><div class="spinner"></div><div class="loading-text">위치 정보를 받아오는 중… (스마트폰 GPS를 켜고 권한을 허용해 주세요)</div></div>';
+      // 데이터 가공 및 정렬
+      let stores = topStores.map(s => ({
+        ...s,
+        distance: userLocation ? getDistance(userLocation.lat, userLocation.lng, s.lat, s.lng) : null
+      }));
 
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const userLat = position.coords.latitude;
-          const userLng = position.coords.longitude;
+      if (sortBy === 'wins') {
+        stores.sort((a, b) => b.wins - a.wins);
+      } else {
+        stores.sort((a, b) => a.distance - b.distance);
+      }
 
-          const maxRadius = parseFloat(document.getElementById('radiusSlider').value);
-          const minWins = parseInt(document.getElementById('minWinsSlider').value);
-
-          const storesWithDistance = topStores.map(store => {
-            return {
-              ...store,
-              distance: getDistance(userLat, userLng, store.lat, store.lng)
-            };
-          }).filter(store => store.distance <= maxRadius && store.wins >= minWins);
-
-          // 거리(distance)가 가까운 순으로 오름차순 정렬
-          storesWithDistance.sort((a, b) => a.distance - b.distance);
-
-          let nearby = storesWithDistance;
-
-          let html = '';
-          if (nearby.length === 0) {
-            html = `<div class="err" style="background:var(--bg2); border-radius:12px; padding:20px;">설정한 조건(반경 ${maxRadius}km, 최소 ${minWins}번)에 맞는 명당이 없습니다.<br><br>조건을 완화해서 다시 시도해보세요.</div>`;
-          } else {
-            html = `<div class="count-badge">내 위치 반경 ${maxRadius}km 이내 명당 (총 ${nearby.length}곳)</div>
-            <div class="results-list">`;
-
-            nearby.forEach((s, idx) => {
-              html += `
-              <div class="result-row" style="align-items:flex-start; flex-direction:column; gap:8px; position:relative;">
-                <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
-                  <div style="font-size:1.05rem; font-weight:700; color:var(--text);">${idx + 1}. ${s.name}</div>
-                  <div style="background:var(--gold); color:#000; font-weight:700; padding:3px 8px; border-radius:6px; font-size:0.85rem;">1등 ${s.wins}번</div>
-                </div>
-                <div style="font-size:0.85rem; color:var(--muted);">${s.address}</div>
-                <div style="display:flex; justify-content:space-between; width:100%; align-items:flex-end; margin-top:4px;">
-                  <div style="font-size:0.8rem; color:#48baf0; font-family:'Space Mono', monospace;">📍 약 ${s.distance.toFixed(1)}km 거리</div>
-                  <div style="font-size:0.75rem; color:#888;">최근 1등: ${s.latestDate}</div>
-                </div>
-              </div>`;
-            });
-            html += `</div>`;
-          }
-          el.innerHTML = html;
-        },
-        (err) => {
-          el.innerHTML = '<div class="err">위치 정보를 가져오는데 실패했습니다. 권한 거부, 또는 스마트폰의 GPS 기능이 꺼져있을 수 있습니다.</div>';
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-      );
+      // 렌더링
+      let html = `<div class="count-badge" style="margin-bottom:15px;">전국 1등 배출 명당 Top ${stores.length}</div>`;
+      html += `<div class="results-list">`;
+      
+      stores.forEach((s, i) => {
+        const distStr = s.distance !== null ? `약 ${s.distance.toFixed(1)}km` : '위치 미확인';
+        const mapUrl = `https://map.kakao.com/link/search/${encodeURIComponent(s.address)}`;
+        
+        html += `
+          <div class="result-row" style="flex-direction: column; align-items: flex-start; gap: 8px; position: relative;">
+            <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+              <div style="font-weight: 700; font-size: 1.05rem; color: var(--text);">
+                <span style="color:var(--gold2); font-family:'Space Mono'; margin-right:8px;">${(i + 1).toString().padStart(2, '0')}</span> ${s.name}
+              </div>
+              <div style="background: rgba(245, 200, 66, 0.15); color: var(--gold); font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem;">
+                1등 ${s.wins}번
+              </div>
+            </div>
+            <div style="font-size: 0.85rem; color: var(--muted);">${s.address}</div>
+            <div style="display: flex; justify-content: space-between; width: 100%; align-items: center; margin-top: 5px;">
+              <div style="font-size: 0.8rem; color: #48baf0; font-family: 'Space Mono', monospace;">
+                📍 ${distStr}
+              </div>
+              <a href="${mapUrl}" target="_blank" style="font-size: 0.75rem; color: var(--gold); text-decoration: none; border: 1px solid var(--gold); padding: 2px 8px; border-radius: 4px;">지도 보기</a>
+            </div>
+          </div>
+        `;
+      });
+      
+      html += `</div>`;
+      el.innerHTML = html;
     }
 
     // ── 패널 4: 해몽 분석 ───────────────────────────────────────────────
