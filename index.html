@@ -1229,8 +1229,7 @@
       document.getElementById('numsResult').innerHTML = '';
     }
 
-    let allData = null;
-    let loadingPromise = null;
+
     let latestRound = 1220; // 초기값, 자동 갱신됨
 
     // 최신 회차 번호를 수학적으로 정확하게 계산
@@ -1248,21 +1247,7 @@
       return latestRound;
     }
 
-    async function loadAllData(progressEl) {
-      if (allData) return allData;
-      if (loadingPromise) return loadingPromise; // 중복 호출 방지
 
-      loadingPromise = (async () => {
-        const TOTAL = latestRound;
-        const BATCH = 50;
-        allData = {};
-
-        for (let i = 1; i <= TOTAL; i += BATCH) {
-          const promises = [];
-          for (let j = i; j < Math.min(i + BATCH, TOTAL + 1); j++) {
-            promises.push(fetchRound(j).then(d => { if (d) allData[d.no] = d; }).catch(() => { }));
-          }
-          await Promise.all(promises);
     async function searchByNums() {
       const nums = [...selected].sort((a, b) => a - b);
       if (nums.length === 0) return;
