@@ -10,6 +10,7 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@300;400;500;700&family=Space+Mono:wght@400;700&display=swap"
     rel="stylesheet">
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
   <style>
     :root {
       --gold: #f5c842;
@@ -904,6 +905,18 @@
         <button class="btn-gold" onclick="searchRound()">조회</button>
       </div>
       <div id="roundResult"></div>
+
+      <!-- 전체 회차 데이터 섹션 (자동 로드) -->
+      <div style="margin-top: 30px; border-top: 1px solid var(--border); padding-top: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+          <div class="picker-label" style="margin-bottom: 0;">전체 회차 내역 (1회~최신)</div>
+          <div id="dataStatus" style="font-size: 0.7rem; color: var(--gold2);">데이터 로드 중...</div>
+        </div>
+        
+        <div id="excelDataList" class="results-list" style="max-height: 700px; overflow-y: auto; padding-right: 8px; border: 1px solid var(--border); border-radius: 12px; padding: 10px; background: rgba(0,0,0,0.2);">
+          <div class="loading"><div class="spinner"></div><div class="loading-text">데이터를 불러오는 중입니다...</div></div>
+        </div>
+      </div>
     </div>
 
     <!-- 패널 2: 번호 검색 -->
@@ -923,6 +936,7 @@
           <button class="btn-ghost" onclick="clearNums()">초기화</button>
         </div>
       </div>
+
       <div id="numsResult"></div>
     </div>
 
@@ -1040,6 +1054,7 @@
     }
 
     function fmt(n) {
+      if (!n || isNaN(n)) return '0원';
       return Number(n).toLocaleString('ko-KR') + '원';
     }
 
@@ -1093,10 +1108,15 @@
 
     // ── 결과 카드 렌더 ────────────────────────────────────────────────────
     function renderCard(d, highlights = []) {
-      const r = d.raw;
+      // API 원본 데이터(raw)가 있으면 사용, 없으면 d 자체의 win 정보를 사용
+      const r = d.raw || {
+        firstWinamnt: d.win1?.prize, firstPrzwnerCo: d.win1?.count,
+        secondWinamnt: d.win2?.prize, secondPrzwnerCo: d.win2?.count,
+        thirdWinamnt: d.win3?.prize, thirdPrzwnerCo: d.win3?.count
+      };
 
       let winTypesHtml = '';
-      if (d.autoCnt !== null && d.manualCnt !== null) {
+      if (d.autoCnt !== null && d.manualCnt !== null && d.autoCnt !== undefined) {
         winTypesHtml = `<div style="font-size:0.75rem; color:var(--muted); margin-top:6px; text-align:right;">
           (자동 ${d.autoCnt}명 / 수동 ${d.manualCnt}명${d.semiCnt ? ` / 반자동 ${d.semiCnt}명` : ''})
         </div>`;
@@ -1127,7 +1147,6 @@
     </div>
     ${winTypesHtml}
     
-    <!-- 1등, 2등, 3등 당첨 정보 테이블 -->
     <table class="prize-table" style="margin-top:20px;">
       <thead><tr><th>등수</th><th>당첨자 수</th><th class="money">1인 당첨금</th></tr></thead>
       <tbody>
@@ -1150,6 +1169,13 @@
       if (!val) return;
       const no = parseInt(val);
       if (isNaN(no) || no < 1) { el.innerHTML = '<div class="err">올바른 회차를 입력하세요.</div>'; return; }
+
+      // 1. 로컬 데이터에서 먼저 찾기 (매우 빠름)
+      const local = lottoHistory.find(d => d.no === no);
+      if (local) {
+        el.innerHTML = renderCard(local);
+        return;
+      }
 
       el.innerHTML = `<div class="loading"><div class="spinner"></div><div class="loading-text">${no}회 조회 중…</div></div>`;
       try {
@@ -1237,18 +1263,6 @@
             promises.push(fetchRound(j).then(d => { if (d) allData[d.no] = d; }).catch(() => { }));
           }
           await Promise.all(promises);
-          if (progressEl) {
-            const pct = Math.min(100, Math.round((i + BATCH) / TOTAL * 100));
-            progressEl.style.width = pct + '%';
-          }
-        }
-        loadingPromise = null;
-        return allData;
-      })();
-
-      return loadingPromise;
-    }
-
     async function searchByNums() {
       const nums = [...selected].sort((a, b) => a - b);
       if (nums.length === 0) return;
@@ -1258,51 +1272,41 @@
       el.innerHTML = `
     <div class="loading">
       <div class="spinner"></div>
-      <div class="loading-text" id="numLoadingText">전체 회차 데이터 수집 중… (1~2분 소요)</div>
-      <div class="progress-wrap">
-        <div class="progress-track"><div class="progress-bar" id="numProgress"></div></div>
-      </div>
+      <div class="loading-text">공식 당첨 데이터에서 검색 중…</div>
     </div>`;
 
+      // 인위적인 짧은 딜레이로 검색 중임을 알림
+      await new Promise(r => setTimeout(r, 400));
+
       try {
-        // 이미 로드됐으면 즉시 검색
-        if (!allData) {
-          const progressBar = document.getElementById('numProgress');
-          await loadAllData(progressBar);
-        } else {
-          document.getElementById('numLoadingText').textContent = '검색 중…';
+        if (lottoHistory.length === 0) {
+          // 데이터가 아직 로드 안됐으면 로드 대기
+          await loadLottoHistory();
         }
 
-        const results = [];
-        for (let no = 1; no <= latestRound; no++) {
-          const d = allData[no]; if (!d) continue;
-          const match = mode === 'all'
+        const results = lottoHistory.filter(d => {
+          return mode === 'all'
             ? nums.every(n => d.nums.includes(n))
             : nums.some(n => d.nums.includes(n));
-          if (match) results.push(d);
-        }
+        });
 
         if (results.length === 0) {
           el.innerHTML = `<div class="err">해당 번호가 포함된 회차가 없습니다.</div>`;
           return;
         }
 
-        let html = `<div class="count-badge">총 ${results.length}개 회차 발견 (1~${latestRound}회 검색)</div>
-    <div class="results-list">`;
-        for (const d of results.reverse()) {
-          html += `
-      <div class="result-row">
-        <div class="rno"><small>${d.date}</small><strong>${d.no}회</strong></div>
-        <div class="balls-mini">
-          ${d.nums.map(n => `<div class="ball sm ${ballColor(n)}" ${nums.includes(n) ? 'style="outline:2px solid rgba(255,255,255,0.6);outline-offset:1px;"' : ''}>${n}</div>`).join('')}
-          <div style="color:var(--muted);font-size:0.75rem;display:flex;align-items:center;margin-left:2px;">+${d.bonus}</div>
-        </div>
-      </div>`;
+        let html = `<div class="count-badge" style="margin-bottom:20px;">총 ${results.length}개 회차 발견 (공식 데이터 검색 결과)</div>
+    <div class="results-list" style="gap:20px;">`;
+        
+        for (const d of results) {
+          html += renderCard(d, nums);
         }
+        
         html += `</div>`;
         el.innerHTML = html;
       } catch (e) {
-        el.innerHTML = '<div class="err">데이터를 불러오지 못했습니다.</div>';
+        console.error(e);
+        el.innerHTML = '<div class="err">검색 중 오류가 발생했습니다.</div>';
       }
     }
 
@@ -1642,7 +1646,79 @@
       document.getElementById('today-visitors').textContent = currentToday.toLocaleString();
       document.getElementById('total-visitors').textContent = totalAccumulated.toLocaleString();
     }
-    updateVisitorStats();
+    // ── 데이터 자동 로드 및 처리 ──────────────────────────────────────────
+    let lottoHistory = [];
+
+    async function loadLottoHistory() {
+      const el = document.getElementById('excelDataList');
+      const statusEl = document.getElementById('dataStatus');
+      
+      try {
+        // 공신력 있는 개인 GitHub 저장소의 정제된 전체 데이터 사용
+        const r = await fetch('https://smok95.github.io/lotto/results/all.json');
+        const rawData = await r.json();
+        
+        // 데이터 변환 및 정렬 (최신순)
+        lottoHistory = rawData.map(d => ({
+          no: d.draw_no,
+          date: d.date.split('T')[0],
+          nums: d.numbers.sort((a,b) => a-b),
+          bonus: d.bonus_no,
+          win1: { count: d.divisions[1]?.winners || 0, prize: d.divisions[1]?.prize || 0 },
+          win2: { count: d.divisions[2]?.winners || 0, prize: d.divisions[2]?.prize || 0 },
+          win3: { count: d.divisions[3]?.winners || 0, prize: d.divisions[3]?.prize || 0 }
+        })).sort((a, b) => b.no - a.no);
+
+        statusEl.textContent = `총 ${lottoHistory.length}개 회차 로드 완료`;
+        renderHistoryList(lottoHistory);
+      } catch (err) {
+        console.error('History load fail', err);
+        el.innerHTML = '<div class="err">데이터 로드 실패. 인터넷 연결을 확인해주세요.</div>';
+        statusEl.textContent = '로드 실패';
+      }
+    }
+
+    function renderHistoryList(data) {
+      const el = document.getElementById('excelDataList');
+      let html = '';
+      
+      data.forEach(d => {
+        html += `
+        <div class="result-row" style="margin-bottom:12px; flex-direction:column; align-items:stretch; gap:12px; padding:20px; background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.05);">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="rno">
+              <small style="opacity:0.6;">${d.date}</small>
+              <strong style="font-size:1.2rem; color:var(--gold);">${d.no}회</strong>
+            </div>
+            <div class="balls-mini" style="gap:8px;">
+              ${d.nums.map(n => `<div class="ball sm ${ballColor(n)}" style="width:34px; height:34px;">${n}</div>`).join('')}
+              <div style="color:var(--muted); font-weight:bold; margin:0 2px;">+</div>
+              <div class="ball sm ${ballColor(d.bonus)}" style="width:34px; height:34px;">${d.bonus}</div>
+            </div>
+          </div>
+          
+          <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; border-top:1px solid rgba(255,255,255,0.05); padding-top:12px;">
+            <div style="text-align:center;">
+              <div style="font-size:0.65rem; color:var(--muted); margin-bottom:4px;">1등 (${d.win1.count}명)</div>
+              <div style="font-size:0.8rem; color:var(--gold); font-weight:bold;">${fmt(d.win1.prize)}</div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-size:0.65rem; color:var(--muted); margin-bottom:4px;">2등 (${d.win2.count}명)</div>
+              <div style="font-size:0.8rem; color:#7ad8ff; font-weight:bold;">${fmt(d.win2.prize)}</div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-size:0.65rem; color:var(--muted); margin-bottom:4px;">3등 (${d.win3.count}명)</div>
+              <div style="font-size:0.8rem; color:#ff9090; font-weight:bold;">${fmt(d.win3.prize)}</div>
+            </div>
+          </div>
+        </div>`;
+      });
+      
+      el.innerHTML = html;
+    }
+
+    // 초기화 시 실행
+    loadLottoHistory();
   </script>
 </body>
 
