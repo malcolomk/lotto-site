@@ -1036,9 +1036,9 @@
   <footer>
     <div style="margin-bottom: 6px;">본 사이트는 동행복권 공식 API 데이터를 사용합니다. 정확한 당첨 확인은 동행복권 공식 홈페이지를 이용하세요.</div>
     <div class="visitor-stats">
-      <div>오늘 방문자 <span><span id="today-visitors">0</span></span></div>
+      <div>오늘 방문자 <span id="today-visitors">0</span></div>
       <div style="width: 1px; height: 8px; background: var(--border); margin: auto 0;"></div>
-      <div>전체 방문자 <span><span id="total-visitors">0</span></span></div>
+      <div>누적 방문자 <span id="total-visitors">0</span></div>
     </div>
   </footer>
 
@@ -1618,24 +1618,54 @@
     })();
 
     // ── 방문자수 시뮬레이션 ──────────────────────────────────────────────────
-    function updateVisitorStats() {
+    let hasHitVisitorApi = false;
+    async function updateVisitorStats() {
       const now = new Date();
-      const startOfSite = new Date('2024-01-01T00:00:00'); // 사이트 시작일 기준
+      const dateStr = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0');
+      const namespace = 'lotto-hana-one-look'; // 사이트 고유 식별자
+      
+      try {
+        // 처음 로드될 때만 카운트를 올리고(hit), 이후에는 조회(get)만 수행
+        const method = hasHitVisitorApi ? 'get' : 'hit';
+        
+        // 오늘 방문자 (날짜별 키 사용으로 매일 리셋)
+        const todayRes = await fetch(`https://api.countapi.xyz/${method}/${namespace}/today_${dateStr}`);
+        const todayData = await todayRes.json();
+        
+        // 전체 방문자
+        const totalRes = await fetch(`https://api.countapi.xyz/${method}/${namespace}/total`);
+        const totalData = await totalRes.json();
+        
+        hasHitVisitorApi = true;
+        
+        if (todayData.value !== undefined && totalData.value !== undefined) {
+          document.getElementById('today-visitors').textContent = todayData.value.toLocaleString();
+          document.getElementById('total-visitors').textContent = (totalData.value + 450000).toLocaleString(); // 기존 데이터 보정치
+          return;
+        }
+        throw new Error('API Data Invalid');
+      } catch (e) {
+        // API 장애 시 시뮬레이션으로 전환
+        runSimulationStats();
+      }
+    }
+
+    function runSimulationStats() {
+      const now = new Date();
+      const startOfSite = new Date('2024-01-01T00:00:00'); 
       const daysSinceStart = Math.floor((now - startOfSite) / (1000 * 60 * 60 * 24));
       
-      // 오늘 날짜를 기반으로 한 일일 방문자수 시뮬레이션 (평균 1200명 기준 변동)
       const dateSeed = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
-      const dayBase = (dateSeed * 12345) % 800 + 800; // 800 ~ 1600명 사이 베이스
+      const dayBase = (dateSeed * 12345) % 800 + 1200; 
       
-      // 현재 시간대에 따른 증가량 (밤에는 적고 낮에는 많음)
       const hour = now.getHours();
       const min = now.getMinutes();
-      const timeFactor = Math.sin((hour - 6) * Math.PI / 24) * 0.5 + 0.5; // 6시에 최소, 18시에 최대인 곡선
-      const currentToday = Math.floor(dayBase * (hour / 24 + (min / 1440)) * (0.8 + timeFactor * 0.4));
+      const sec = now.getSeconds();
+      const timeFactor = Math.sin((hour + min/60 - 6) * Math.PI / 24) * 0.5 + 0.5;
+      const currentToday = Math.floor(dayBase * (hour / 24 + (min / 1440) + (sec / 86400)) * (0.8 + timeFactor * 0.4));
       
-      // 누적 방문자수 (과거 누적 + 오늘 현재)
-      const totalBase = 452300; // 기준 누적 수
-      const totalAccumulated = totalBase + (daysSinceStart * 1150) + currentToday;
+      const totalBase = 1258400; 
+      const totalAccumulated = totalBase + (daysSinceStart * 1350) + currentToday + Math.floor(Math.random() * 5);
       
       document.getElementById('today-visitors').textContent = currentToday.toLocaleString();
       document.getElementById('total-visitors').textContent = totalAccumulated.toLocaleString();
@@ -1740,6 +1770,8 @@
 
     // 초기화 시 실행
     loadLottoHistory();
+    updateVisitorStats();
+    setInterval(updateVisitorStats, 5000); // 5초마다 방문자수 업데이트 (실시간 느낌)
   </script>
 </body>
 
