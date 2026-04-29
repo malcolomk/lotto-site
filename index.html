@@ -1592,12 +1592,15 @@
         el.innerHTML = `
           <div class="result-card" style="padding: 24px;">
             <div style="text-align:center; margin-bottom: 24px;">
-              <div style="font-size: 1.1rem; color: var(--muted); margin-bottom: 8px;">AI가 분석한 당신의 복권 운</div>
+              <div style="font-size: 1.1rem; color: var(--muted); margin-bottom: 8px;">${data.source || 'AI'}가 분석한 당신의 복권 운</div>
               <div style="font-size: 2.5rem; letter-spacing: 4px;">${starsHtml}</div>
               <div style="font-size: 1.2rem; font-weight: bold; color: var(--gold); margin-top: 8px;">${starsCount} / 5 점</div>
             </div>
             <div style="border-top: 1px solid var(--border); padding-top: 20px;">
-              <div style="font-size: 0.9rem; color: var(--gold); margin-bottom: 8px; font-weight: bold;">🌙 해몽 풀이</div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div style="font-size: 0.9rem; color: var(--gold); font-weight: bold;">🌙 해몽 풀이</div>
+                <div style="font-size: 0.7rem; color: var(--muted);">출처: ${data.source || '시스템 자체 분석'}</div>
+              </div>
               <div style="font-size: 1.05rem; line-height: 1.7; color: var(--text); white-space: pre-wrap;">${data.interpretation}</div>
             </div>
           </div>
