@@ -602,6 +602,31 @@
       margin: 0 auto 16px;
     }
 
+    /* ── 해몽 키워드 칩 ── */
+    .keyword-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 12px;
+    }
+
+    .chip {
+      padding: 6px 12px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      font-size: 0.75rem;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .chip:hover {
+      background: rgba(245, 200, 66, 0.1);
+      border-color: var(--gold);
+      color: var(--gold);
+    }
+
     @keyframes spin {
       to {
         transform: rotate(360deg);
@@ -982,7 +1007,22 @@
           <label for="dreamInput" class="picker-label" style="display:block; margin-bottom:12px; font-size:1.05rem;">간밤에
             어떤 꿈을 꾸셨나요?</label>
           <textarea id="dreamInput" placeholder="예: 돼지가 집 안으로 들어와서 제 품에 안기는 꿈을 꾸었어요." rows="5"
-            style="width: 100%; padding: 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 1rem; resize: vertical; margin-bottom: 16px; font-family: inherit;"></textarea>
+            style="width: 100%; padding: 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 1rem; resize: vertical; margin-bottom: 12px; font-family: inherit;"></textarea>
+          
+          <div class="picker-label" style="font-size:0.75rem; margin-bottom:8px;">인기 키워드 (클릭하여 입력)</div>
+          <div class="keyword-chips" style="margin-bottom: 20px;">
+            <span class="chip" onclick="addKeyword('돼지')">🐷 돼지</span>
+            <span class="chip" onclick="addKeyword('조상')">👴 조상님</span>
+            <span class="chip" onclick="addKeyword('똥')">💩 똥/변</span>
+            <span class="chip" onclick="addKeyword('불')">🔥 불/화재</span>
+            <span class="chip" onclick="addKeyword('물')">💧 물/바다</span>
+            <span class="chip" onclick="addKeyword('돈')">💰 돈/금</span>
+            <span class="chip" onclick="addKeyword('뱀')">🐍 뱀/용</span>
+            <span class="chip" onclick="addKeyword('죽음')">💀 죽음/시체</span>
+            <span class="chip" onclick="addKeyword('대통령')">👑 대통령</span>
+            <span class="chip" onclick="addKeyword('보석')">💎 보석/반지</span>
+          </div>
+
           <button class="btn-gold" style="width: 100%; font-size: 1.1rem; padding: 16px; border-radius: 8px;"
             onclick="analyzeDream()">✨ 꿈 풀이 및 복권 운 확인하기</button>
         </div>
@@ -1560,6 +1600,13 @@
     }
 
     // ── 패널 4: 해몽 분석 ───────────────────────────────────────────────
+    function addKeyword(k) {
+      const input = document.getElementById('dreamInput');
+      if (input.value.includes(k)) return;
+      input.value += (input.value ? ' ' : '') + k;
+      input.focus();
+    }
+
     async function analyzeDream() {
       const input = document.getElementById('dreamInput').value.trim();
       const el = document.getElementById('dreamResult');
@@ -1569,7 +1616,12 @@
         return;
       }
 
-      el.innerHTML = '<div class="loading"><div class="spinner"></div><div class="loading-text">AI 해몽가가 꿈을 분석하고 복권 당첨운을 계산 중입니다... (약 10~15초 소요)</div></div>';
+      el.innerHTML = `
+        <div class="loading">
+          <div class="spinner"></div>
+          <div class="loading-text">전교한 AI 해몽 데이터베이스에서 당신의 꿈을 분석 중입니다...</div>
+          <div style="font-size:0.7rem; color:var(--muted); margin-top:8px;">(약 200여개의 핵심 키워드 대조 분석 중)</div>
+        </div>`;
 
       try {
         const response = await fetch('/api/dream', {
@@ -1586,27 +1638,47 @@
 
         const starsCount = Math.min(5, Math.max(1, parseInt(data.stars) || 1));
         const emptyStars = 5 - starsCount;
+        const starsHtml = '⭐'.repeat(starsCount) + '<span style="opacity:0.2; filter: grayscale(1);">' + '⭐'.repeat(emptyStars) + '</span>';
 
-        const starsHtml = '⭐'.repeat(starsCount) + '<span style="opacity:0.3; filter: grayscale(1);">' + '⭐'.repeat(emptyStars) + '</span>';
+        let luckyNumsHtml = '';
+        if (data.recommendedNumbers && data.recommendedNumbers.length > 0) {
+          luckyNumsHtml = `
+            <div style="margin-top: 24px; background: rgba(245, 200, 66, 0.05); border: 1px dashed var(--gold); border-radius: 12px; padding: 20px; text-align: center;">
+              <div style="font-size: 0.85rem; color: var(--gold); font-weight: bold; margin-bottom: 14px;">🍀 AI 추천 행운의 번호</div>
+              <div class="balls-row" style="justify-content: center; margin-bottom: 0;">
+                ${data.recommendedNumbers.map(n => makeBall(n, true)).join('')}
+              </div>
+              <div style="font-size: 0.7rem; color: var(--muted); margin-top: 12px;">꿈의 상징과 AI 알고리즘이 결합된 최적의 조합입니다.</div>
+            </div>
+          `;
+        }
 
         el.innerHTML = `
-          <div class="result-card" style="padding: 24px;">
-            <div style="text-align:center; margin-bottom: 24px;">
-              <div style="font-size: 1.1rem; color: var(--muted); margin-bottom: 8px;">${data.source || 'AI'}가 분석한 당신의 복권 운</div>
-              <div style="font-size: 2.5rem; letter-spacing: 4px;">${starsHtml}</div>
-              <div style="font-size: 1.2rem; font-weight: bold; color: var(--gold); margin-top: 8px;">${starsCount} / 5 점</div>
+          <div class="result-card" style="padding: 32px; border: 1px solid rgba(245, 200, 66, 0.3); background: linear-gradient(180deg, var(--bg2) 0%, var(--bg) 100%);">
+            <div style="text-align:center; margin-bottom: 32px;">
+              <div style="font-size: 1rem; color: var(--muted); margin-bottom: 12px; letter-spacing: 0.1em; text-transform: uppercase;">${data.source || 'AI Analysis'}</div>
+              <div style="font-size: 2.8rem; letter-spacing: 6px; margin-bottom: 12px; filter: drop-shadow(0 0 10px rgba(245,200,66,0.3));">${starsHtml}</div>
+              <div style="font-size: 1.4rem; font-weight: 900; background: linear-gradient(to bottom, var(--gold), #fff); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">당첨운 지수: ${starsCount * 20}%</div>
             </div>
-            <div style="border-top: 1px solid var(--border); padding-top: 20px;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <div style="font-size: 0.9rem; color: var(--gold); font-weight: bold;">🌙 해몽 풀이</div>
-                <div style="font-size: 0.7rem; color: var(--muted);">출처: ${data.source || '시스템 자체 분석'}</div>
+            
+            <div style="border-top: 1px solid var(--border); padding-top: 24px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <div style="font-size: 1rem; color: var(--gold); font-weight: bold; display: flex; align-items: center; gap: 8px;">
+                  <span style="font-size: 1.2rem;">🌙</span> 꿈 풀이 결과
+                </div>
               </div>
-              <div style="font-size: 1.05rem; line-height: 1.7; color: var(--text); white-space: pre-wrap;">${data.interpretation}</div>
+              <div style="font-size: 1.05rem; line-height: 1.8; color: var(--text); white-space: pre-wrap; background: rgba(255,255,255,0.02); padding: 20px; border-radius: 12px; border: 1px solid var(--border);">${data.interpretation}</div>
+            </div>
+
+            ${luckyNumsHtml}
+
+            <div style="margin-top: 24px; text-align: center; font-size: 0.75rem; color: var(--muted); opacity: 0.7;">
+              ※ 해몽 분석은 재미로 참고하시기 바라며, <br>지나친 몰입보다는 즐거운 마음으로 복권을 즐겨주세요.
             </div>
           </div>
         `;
       } catch (error) {
-        el.innerHTML = `<div class="err">${error.message}</div>`;
+        el.innerHTML = `<div class="err" style="background: rgba(255,0,0,0.05); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,0,0,0.2);">${error.message}</div>`;
       }
     }
 
