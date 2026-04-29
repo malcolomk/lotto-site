@@ -532,6 +532,15 @@
       gap: 10px;
     }
 
+    /* 전체 회차 내역 스크롤바 숨기기 */
+    #excelDataList {
+      -ms-overflow-style: none;  /* IE and Edge */
+      scrollbar-width: none;  /* Firefox */
+    }
+    #excelDataList::-webkit-scrollbar {
+      display: none; /* Chrome, Safari, Opera */
+    }
+
     .result-row {
       background: var(--bg2);
       border: 1px solid var(--border);
@@ -909,11 +918,11 @@
       <!-- 전체 회차 데이터 섹션 (자동 로드) -->
       <div style="margin-top: 30px; border-top: 1px solid var(--border); padding-top: 20px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-          <div class="picker-label" style="margin-bottom: 0;">전체 회차 내역 (1회~최신)</div>
+          <div class="picker-label" style="margin-bottom: 0;">회차 내역 (스크롤 시 추가 로드)</div>
           <div id="dataStatus" style="font-size: 0.7rem; color: var(--gold2);">데이터 로드 중...</div>
         </div>
         
-        <div id="excelDataList" class="results-list" style="max-height: 700px; overflow-y: auto; padding-right: 8px; border: 1px solid var(--border); border-radius: 12px; padding: 10px; background: rgba(0,0,0,0.2);">
+        <div id="excelDataList" class="results-list" style="max-height: 700px; overflow-y: auto; border: 1px solid var(--border); border-radius: 12px; padding: 10px; background: rgba(0,0,0,0.2);">
           <div class="loading"><div class="spinner"></div><div class="loading-text">데이터를 불러오는 중입니다...</div></div>
         </div>
       </div>
@@ -1280,10 +1289,10 @@
           return;
         }
 
-        let html = `<div class="count-badge" style="margin-bottom:20px;">총 ${results.length}개 회차 발견 (공식 데이터 검색 결과)</div>
+        let html = `<div class="count-badge" style="margin-bottom:20px;">검색 결과 (상위 10개 회차 표시)</div>
     <div class="results-list" style="gap:20px;">`;
         
-        for (const d of results) {
+        for (const d of results.slice(0, 10)) {
           html += renderCard(d, nums);
         }
         
@@ -1667,43 +1676,66 @@
       }
     }
 
+    let historyIndex = 0;
+    const HISTORY_CHUNK = 10;
+
     function renderHistoryList(data) {
       const el = document.getElementById('excelDataList');
-      let html = '';
+      if (!el) return;
       
-      data.forEach(d => {
-        html += `
-        <div class="result-row" style="margin-bottom:12px; flex-direction:column; align-items:stretch; gap:12px; padding:20px; background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.05);">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div class="rno">
-              <small style="opacity:0.6;">${d.date}</small>
-              <strong style="font-size:1.2rem; color:var(--gold);">${d.no}회</strong>
-            </div>
-            <div class="balls-mini" style="gap:8px;">
-              ${d.nums.map(n => `<div class="ball sm ${ballColor(n)}" style="width:34px; height:34px;">${n}</div>`).join('')}
-              <div style="color:var(--muted); font-weight:bold; margin:0 2px;">+</div>
-              <div class="ball sm ${ballColor(d.bonus)}" style="width:34px; height:34px;">${d.bonus}</div>
-            </div>
-          </div>
-          
-          <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; border-top:1px solid rgba(255,255,255,0.05); padding-top:12px;">
-            <div style="text-align:center;">
-              <div style="font-size:0.65rem; color:var(--muted); margin-bottom:4px;">1등 (${d.win1.count}명)</div>
-              <div style="font-size:0.8rem; color:var(--gold); font-weight:bold;">${fmt(d.win1.prize)}</div>
-            </div>
-            <div style="text-align:center;">
-              <div style="font-size:0.65rem; color:var(--muted); margin-bottom:4px;">2등 (${d.win2.count}명)</div>
-              <div style="font-size:0.8rem; color:#7ad8ff; font-weight:bold;">${fmt(d.win2.prize)}</div>
-            </div>
-            <div style="text-align:center;">
-              <div style="font-size:0.65rem; color:var(--muted); margin-bottom:4px;">3등 (${d.win3.count}명)</div>
-              <div style="font-size:0.8rem; color:#ff9090; font-weight:bold;">${fmt(d.win3.prize)}</div>
-            </div>
-          </div>
-        </div>`;
-      });
+      el.innerHTML = '';
+      historyIndex = 0;
       
-      el.innerHTML = html;
+      function appendChunks() {
+        const chunk = data.slice(historyIndex, historyIndex + HISTORY_CHUNK);
+        if (chunk.length === 0) return;
+
+        let html = '';
+        chunk.forEach(d => {
+          html += `
+          <div class="result-row" style="margin-bottom:12px; flex-direction:column; align-items:stretch; gap:12px; padding:20px; background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.05); cursor:pointer;" onclick="document.getElementById('roundInput').value=${d.no}; searchRound();">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div class="rno">
+                <small style="opacity:0.6;">${d.date}</small>
+                <strong style="font-size:1.2rem; color:var(--gold);">${d.no}회</strong>
+              </div>
+              <div class="balls-mini" style="gap:8px;">
+                ${d.nums.map(n => `<div class="ball sm ${ballColor(n)}" style="width:34px; height:34px;">${n}</div>`).join('')}
+                <div style="color:var(--muted); font-weight:bold; margin:0 2px;">+</div>
+                <div class="ball sm ${ballColor(d.bonus)}" style="width:34px; height:34px;">${d.bonus}</div>
+              </div>
+            </div>
+            
+            <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; border-top:1px solid rgba(255,255,255,0.05); padding-top:12px;">
+              <div style="text-align:center;">
+                <div style="font-size:0.65rem; color:var(--muted); margin-bottom:4px;">1등 (${d.win1.count}명)</div>
+                <div style="font-size:0.8rem; color:var(--gold); font-weight:bold;">${fmt(d.win1.prize)}</div>
+              </div>
+              <div style="text-align:center;">
+                <div style="font-size:0.65rem; color:var(--muted); margin-bottom:4px;">2등 (${d.win2.count}명)</div>
+                <div style="font-size:0.8rem; color:#7ad8ff; font-weight:bold;">${fmt(d.win2.prize)}</div>
+              </div>
+              <div style="text-align:center;">
+                <div style="font-size:0.65rem; color:var(--muted); margin-bottom:4px;">3등 (${d.win3.count}명)</div>
+                <div style="font-size:0.8rem; color:#ff9090; font-weight:bold;">${fmt(d.win3.prize)}</div>
+              </div>
+            </div>
+          </div>`;
+        });
+        
+        el.insertAdjacentHTML('beforeend', html);
+        historyIndex += HISTORY_CHUNK;
+      }
+
+      // 초기 10개 로드
+      appendChunks();
+
+      // 무한 스크롤 이벤트 등록
+      el.onscroll = () => {
+        if (el.scrollTop + el.clientHeight >= el.scrollHeight - 100) {
+          appendChunks();
+        }
+      };
     }
 
     // 초기화 시 실행
