@@ -1644,15 +1644,19 @@
         const rawData = await r.json();
         
         // 데이터 변환 및 정렬 (최신순)
-        lottoHistory = rawData.map(d => ({
-          no: d.draw_no,
-          date: d.date.split('T')[0],
-          nums: d.numbers.sort((a,b) => a-b),
-          bonus: d.bonus_no,
-          win1: { count: d.divisions[1]?.winners || 0, prize: d.divisions[1]?.prize || 0 },
-          win2: { count: d.divisions[2]?.winners || 0, prize: d.divisions[2]?.prize || 0 },
-          win3: { count: d.divisions[3]?.winners || 0, prize: d.divisions[3]?.prize || 0 }
-        })).sort((a, b) => b.no - a.no);
+        lottoHistory = rawData.map(d => {
+          // 일부 데이터에서 앞에 빈 객체가 들어있는 경우 처리 (인덱스 밀림 방지)
+          const divs = (d.divisions[0] && !d.divisions[0].prize) ? d.divisions.slice(1) : d.divisions;
+          return {
+            no: d.draw_no,
+            date: d.date.split('T')[0],
+            nums: d.numbers.sort((a,b) => a-b),
+            bonus: d.bonus_no,
+            win1: { count: divs[0]?.winners || 0, prize: divs[0]?.prize || 0 },
+            win2: { count: divs[1]?.winners || 0, prize: divs[1]?.prize || 0 },
+            win3: { count: divs[2]?.winners || 0, prize: divs[2]?.prize || 0 }
+          };
+        }).sort((a, b) => b.no - a.no);
 
         statusEl.textContent = `총 ${lottoHistory.length}개 회차 로드 완료`;
         renderHistoryList(lottoHistory);
